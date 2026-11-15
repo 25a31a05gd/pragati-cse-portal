@@ -1,0 +1,632 @@
+{
+  "users": [],
+  "sessions": [],
+  "spotlights": [
+    {
+      "id": "spot-1",
+      "category": "Highest Placement Package",
+      "headlineValue": "\u20b944.0 LPA Highest CTC",
+      "title": "Annual CSE Campus Placement Milestone 2026",
+      "recipients": "Sneha Kulkarni (22CSE118) & 6 Final-Year Scholars",
+      "description": "Record software engineering offers secured across systems architecture, cloud infrastructure, and quantitative engineering roles during Phase-1 campus recruitment.",
+      "authorId": "system-dept",
+      "authorName": "CSE Placement Cell",
+      "createdAt": "2026-10-20T09:00:00Z"
+    },
+    {
+      "id": "spot-2",
+      "category": "First Prize \u2014 National Hackathon",
+      "headlineValue": "1st Prize \u00b7 \u20b91,00,000 Grant",
+      "title": "Smart India Hackathon Grand Finale Winners (Software Edition)",
+      "recipients": "Team KernelForge \u2014 Rohan Deshmukh (22CSE104), Arjun Nair (23CSE056)",
+      "description": "Awarded First Prize nationally for building a real-time offline-capable rural telemetry diagnostic platform under 36 hours of continuous evaluation.",
+      "authorId": "system-dept",
+      "authorName": "Department Innovation Council",
+      "createdAt": "2026-10-24T12:00:00Z"
+    }
+  ],
+  "hackathons": [
+    {
+      "id": "hack-1",
+      "hackathonName": "Smart India Hackathon 2026 \u2014 Grand Finale",
+      "organizer": "Ministry of Education Innovation Cell \u00b7 IIT Madras Nodal Center",
+      "eventDate": "October 2026",
+      "teamAndRole": "Team KernelForge (6 Members) \u00b7 Lead Backend Architect",
+      "outcome": "1st Prize Winner (\u20b91,00,000)",
+      "technologies": "Go, React, SQLiteSync, WebSockets, Docker",
+      "overallExperience": "Over 36 hours with three rounds of jury mentoring, our initial monolithic API hit severe sync bottlenecks on intermittent 2G network simulations. Mentoring feedback at midnight pushed us to redesign around delta-compressed local queues. Presenting the live fault-recovery demo to the industry panel was the most defining engineering experience of our undergraduate journey.",
+      "authorId": "stu-dir-1",
+      "authorName": "Rohan Deshmukh",
+      "authorMemberId": "22CSE104",
+      "authorEmail": "rohan.22cse104@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "createdAt": "2026-10-25T15:30:00Z"
+    },
+    {
+      "id": "hack-2",
+      "hackathonName": "ETHGlobal & Systems Buildathon Bengaluru",
+      "organizer": "Indian Institute of Science (IISc) Open Systems Track",
+      "eventDate": "September 2026",
+      "teamAndRole": "Team ZeroLatency (4 Members) \u00b7 Full-Stack & ML Pipeline Lead",
+      "outcome": "Top 5 Finalist \u2014 Systems Track",
+      "technologies": "Python, FastAPI, ONNX Runtime, TypeScript, Tailwind CSS",
+      "overallExperience": "We built an on-device academic plagiarism and citation verifier capable of indexing 10,000+ department PDFs in under 4 seconds using quantized embeddings. Collaborating under tight memory budgets taught us profiling discipline and clean team task handoffs.",
+      "authorId": "stu-dir-2",
+      "authorName": "Sneha Kulkarni",
+      "authorMemberId": "22CSE118",
+      "authorEmail": "sneha.22cse118@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section B",
+      "authorRole": "student",
+      "createdAt": "2026-09-29T18:10:00Z"
+    }
+  ],
+  "interviews": [
+    {
+      "id": "int-1",
+      "companyName": "Atlassian",
+      "roleTitle": "Software Development Engineer \u2014 Graduate 2027",
+      "companyDomain": "Enterprise Collaboration & Cloud Developer Tools",
+      "skillsNeeded": "Data Structures, Concurrent Systems, OOP Design, Java / C++, Clean Code",
+      "hiringType": "On-Campus",
+      "packageOrStipend": "\u20b938.0 LPA",
+      "interviewDate": "October 2026",
+      "resultStatus": "Selected / Offered",
+      "overallDifficulty": "Hard",
+      "overallExperience": "The hiring process consisted of 1 Online Assessment followed by 3 Technical rounds and 1 Values interview. The interviewers cared deeply about writing clean, modular code with exception handling and discussing multiple trade-offs for distributed caching and rate-limiting.",
+      "rounds": [
+        {
+          "roundNumber": 1,
+          "roundTitle": "Round 1: Online Coding Assessment (OA)",
+          "topicsCovered": "Data Structures, Dynamic Programming, Strings",
+          "questionsAsked": "Question 1: Multi-source BFS on a grid with obstacle constraints. Question 2: Segment tree range update query problem with modulo arithmetic.",
+          "difficulty": "Hard"
+        },
+        {
+          "roundNumber": 2,
+          "roundTitle": "Round 2: Technical Interview 1 (DSA & Problem Solving)",
+          "topicsCovered": "Trees, LRU Cache, Concurrency",
+          "questionsAsked": "Design an in-memory TTL cache with O(1) get/set and concurrent thread-safe eviction. Asked to write clean Java/C++ code with mutexes.",
+          "difficulty": "Hard"
+        },
+        {
+          "roundNumber": 3,
+          "roundTitle": "Round 3: Low-Level System Design & Projects",
+          "topicsCovered": "Object-Oriented Design, Design Patterns",
+          "questionsAsked": "Design a distributed rate-limiter service (Token Bucket vs Sliding Window Log). Deep dive into my college LabGrid autograder project architecture.",
+          "difficulty": "Medium"
+        },
+        {
+          "roundNumber": 4,
+          "roundTitle": "Round 4: Atlassian Values & Behavioral",
+          "topicsCovered": "Teamwork, Conflict Resolution, \"Open Company, No Bullshit\"",
+          "questionsAsked": "Scenario questions on handling deadline mismatches and how I resolved a major merge conflict during our SIH hackathon sprint.",
+          "difficulty": "Easy"
+        }
+      ],
+      "keyPreparationTips": "Focus heavily on OOP design patterns, concurrency in Java/C++/Go, and explaining your thought process out loud before typing code. Striver SDE sheet and NeetCode 150 were invaluable.",
+      "resourcesUsed": "NeetCode 150, Designing Data-Intensive Applications, LeetCode Medium/Hard",
+      "authorId": "stu-dir-1",
+      "authorName": "Rohan Deshmukh",
+      "authorMemberId": "22CSE104",
+      "authorEmail": "rohan.22cse104@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "createdAt": "2026-10-28T16:00:00Z"
+    },
+    {
+      "id": "int-2",
+      "companyName": "Google",
+      "roleTitle": "Software Engineer (SWE University Graduate)",
+      "companyDomain": "Global Systems, Search & Distributed Cloud Infrastructure",
+      "skillsNeeded": "Advanced Graph Algorithms, Dynamic Programming, Trie, Complexity Proofs, C++ / Python",
+      "hiringType": "Off-Campus",
+      "packageOrStipend": "\u20b934.5 LPA Base + Stocks",
+      "interviewDate": "September 2026",
+      "resultStatus": "Selected / Offered",
+      "overallDifficulty": "Hard",
+      "overallExperience": "Cleared 4 back-to-back virtual onsite rounds after passing the Google Kickstart / Online Screening. The emphasis was purely on algorithms, optimal graph traversals, and rigorous time & space complexity proofs.",
+      "rounds": [
+        {
+          "roundNumber": 1,
+          "roundTitle": "Round 1: Coding (Graphs & Topological Sort)",
+          "topicsCovered": "DAG, Kahn Algorithm, Cycle Detection",
+          "questionsAsked": "Dependency resolution system with version pinning and cycle detection under resource contention in O(V + E).",
+          "difficulty": "Hard"
+        },
+        {
+          "roundNumber": 2,
+          "roundTitle": "Round 2: Coding (Dynamic Programming & Bitmasking)",
+          "topicsCovered": "Bitmask DP, State Compression",
+          "questionsAsked": "Traveling salesman variation with mandatory checkpoints and battery recharging stations.",
+          "difficulty": "Hard"
+        },
+        {
+          "roundNumber": 3,
+          "roundTitle": "Round 3: Data Structures (Trie & Suffix Arrays)",
+          "topicsCovered": "Trie, Prefix Matching, Memory Optimization",
+          "questionsAsked": "Real-time autocomplete engine for search queries with top-K frequency ranking in O(K log N).",
+          "difficulty": "Medium"
+        },
+        {
+          "roundNumber": 4,
+          "roundTitle": "Round 4: Googleyness & Leadership",
+          "topicsCovered": "Collaboration, Ethics, Ambiguity",
+          "questionsAsked": "How do you handle ambiguous project specifications when team members hold conflicting technical opinions?",
+          "difficulty": "Easy"
+        }
+      ],
+      "keyPreparationTips": "Write production-ready code with edge case checks (null inputs, empty arrays, integer overflows). Practice writing code without IDE autocomplete in Google Docs.",
+      "resourcesUsed": "CSES Problem Set, LeetCode Hard Graphs, CLRS Algorithms",
+      "authorId": "stu-dir-2",
+      "authorName": "Sneha Kulkarni",
+      "authorMemberId": "22CSE118",
+      "authorEmail": "sneha.22cse118@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section B",
+      "authorRole": "student",
+      "createdAt": "2026-10-15T11:20:00Z"
+    },
+    {
+      "id": "int-3",
+      "companyName": "Zoho",
+      "roleTitle": "Member Technical Staff (MTS)",
+      "companyDomain": "Cloud Business Suites & In-House Systems",
+      "skillsNeeded": "C Programming, Memory Allocation, Custom Data Structures, Object-Oriented Design",
+      "hiringType": "On-Campus",
+      "packageOrStipend": "\u20b914.5 LPA",
+      "interviewDate": "October 2026",
+      "resultStatus": "Selected / Offered",
+      "overallDifficulty": "Medium",
+      "overallExperience": "Classic Zoho recruitment drive: paper-pencil written programming round, basic C logic, advanced DSA implementation without built-in library functions, and low-level application design.",
+      "rounds": [
+        {
+          "roundNumber": 1,
+          "roundTitle": "Round 1: Written Programming & C Aptitude",
+          "topicsCovered": "Pointers, Bitwise operators, Recursion",
+          "questionsAsked": "Pointer arithmetic output prediction, matrix spiraling, and pattern generation questions.",
+          "difficulty": "Medium"
+        },
+        {
+          "roundNumber": 2,
+          "roundTitle": "Round 2: Basic Programming & DSA (Hands-on)",
+          "topicsCovered": "Arrays, Strings, Stacks",
+          "questionsAsked": "Implement string substring matching without std::string functions; Evaluate postfix expressions.",
+          "difficulty": "Medium"
+        },
+        {
+          "roundNumber": 3,
+          "roundTitle": "Round 3: Advanced Programming (Design App from Scratch)",
+          "topicsCovered": "OOPs, File Handling, Clean Architecture",
+          "questionsAsked": "Build a railway reservation system with waiting list allocation, berth preferences, and ticket cancellation logic in 2 hours.",
+          "difficulty": "Hard"
+        },
+        {
+          "roundNumber": 4,
+          "roundTitle": "Round 4: Technical HR & Fitment",
+          "topicsCovered": "Work culture, willingness to work on proprietary Zoho stacks",
+          "questionsAsked": "Discussion on why Zoho, projects completed, and adaptability to in-house frameworks.",
+          "difficulty": "Easy"
+        }
+      ],
+      "keyPreparationTips": "Do not rely heavily on STL / built-in methods. Practice implementing custom stacks, queues, and linked lists from scratch in C++ or Java.",
+      "resourcesUsed": "GeeksforGeeks Zoho Archives, OOP principles in Java",
+      "authorId": "stu-dir-3",
+      "authorName": "Arjun Nair",
+      "authorMemberId": "23CSE056",
+      "authorEmail": "arjun.23cse056@dept.edu",
+      "authorBatch": "2nd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "createdAt": "2026-10-24T14:40:00Z"
+    },
+    {
+      "id": "int-4",
+      "companyName": "Microsoft",
+      "roleTitle": "Software Engineer (SWE Grad 2027)",
+      "companyDomain": "Cloud & AI Platforms (Azure / Office)",
+      "skillsNeeded": "Binary Trees, Dynamic Programming, System Design, Operating Systems, C# / C++",
+      "hiringType": "On-Campus",
+      "packageOrStipend": "\u20b928.5 LPA",
+      "interviewDate": "November 2026",
+      "resultStatus": "Selected / Offered",
+      "overallDifficulty": "Hard",
+      "overallExperience": "Three rounds focusing heavily on binary tree traversals, memory leak detection, virtual memory, and scalable REST API design.",
+      "rounds": [
+        {
+          "roundNumber": 1,
+          "roundTitle": "Round 1: Online Assessment",
+          "topicsCovered": "DSA, Bitwise, Greedy",
+          "questionsAsked": "3 Coding questions in 75 mins: Min deletions to make character frequencies unique, max binary tree path sum variation.",
+          "difficulty": "Medium"
+        },
+        {
+          "roundNumber": 2,
+          "roundTitle": "Round 2: Technical Interview 1",
+          "topicsCovered": "Trees, Linked Lists, OS Basics",
+          "questionsAsked": "Lowest common ancestor in a binary tree with parent pointers, process vs thread memory spaces.",
+          "difficulty": "Medium"
+        },
+        {
+          "roundNumber": 3,
+          "roundTitle": "Round 3: Technical Interview 2 & System Design",
+          "topicsCovered": "Distributed Storage, Indexing",
+          "questionsAsked": "Design a document collaboration system with undo/redo capabilities and conflict resolution.",
+          "difficulty": "Hard"
+        }
+      ],
+      "keyPreparationTips": "Practice tree traversals and explain OS memory management, virtual memory paging, and multithreading thoroughly.",
+      "resourcesUsed": "LeetCode Microsoft tagged, Operating Systems Three Easy Pieces",
+      "authorId": "stu-dir-1",
+      "authorName": "Rohan Deshmukh",
+      "authorMemberId": "22CSE104",
+      "authorEmail": "rohan.22cse104@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "createdAt": "2026-10-30T10:00:00Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj-1",
+      "projectName": "LabGrid \u2014 Distributed Code Judge & Auto-Grader",
+      "websiteType": "Systems & Cloud Platform",
+      "projectLink": "https://github.com/rohan-cse104/labgrid-autograder",
+      "technologies": "Go, Linux Namespaces, React, PostgreSQL, Redis",
+      "description": "Sandboxed C/C++, Java, and Python lab assignment evaluator built for CSE programming labs. Evaluates 120 concurrent submissions with deterministic memory and CPU time-slice limits and generates line-by-line test case diagnostics.",
+      "authorId": "stu-dir-1",
+      "authorName": "Rohan Deshmukh",
+      "authorMemberId": "22CSE104",
+      "authorEmail": "rohan.22cse104@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "createdAt": "2026-10-12T11:20:00Z"
+    },
+    {
+      "id": "proj-2",
+      "projectName": "SyllabusLens \u2014 Prerequisite Graph & Electives Planner",
+      "websiteType": "Full-Stack Web Application",
+      "projectLink": "https://github.com/sneha-k118/syllabus-lens",
+      "technologies": "TypeScript, React, D3.js, Express, SQLite",
+      "description": "Interactive curriculum dependency visualizer for CSE undergraduates to map core prerequisites, credit requirements, and Honors/Minor specialization tracks across Semesters 1 to 8.",
+      "authorId": "stu-dir-2",
+      "authorName": "Sneha Kulkarni",
+      "authorMemberId": "22CSE118",
+      "authorEmail": "sneha.22cse118@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section B",
+      "authorRole": "student",
+      "createdAt": "2026-10-18T09:45:00Z"
+    }
+  ],
+  "problems": [
+    {
+      "id": "prob-1",
+      "title": "Automated Lab Attendance & Workstation Seat Mapping Sync Issue",
+      "applicationName": "CSE Lab Session Tracker v2",
+      "category": "Backend & Networking",
+      "description": "During 60-student compiler design lab sessions in Lab-3, subnet DHCP lease renewals cause duplicate IP entries in the attendance check-in utility. Looking for someone experienced in MAC-binding or token-based local LAN verification to help patch the check-in service.",
+      "contactInfo": "Lab Complex Block-B, Room 304 \u00b7 Ext 219",
+      "contactEmail": "rohan.22cse104@dept.edu",
+      "status": "open",
+      "authorId": "stu-dir-1",
+      "authorName": "Rohan Deshmukh",
+      "authorMemberId": "22CSE104",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "solvedByIds": [],
+      "responses": [],
+      "createdAt": "2026-10-29T13:15:00Z"
+    },
+    {
+      "id": "prob-2",
+      "title": "PDF OCR Table Extraction Misalignment on Scanned Semester Results",
+      "applicationName": "Result Analytics Script",
+      "category": "Data & Document Processing",
+      "description": "Multi-page scanned university grade sheets lose column alignment when subject titles wrap across two lines. Need a clean layout-aware table parser or OpenCV line-grid pre-processor to extract accurate SGPA tables.",
+      "contactInfo": "CSE Research Wing, Desk 12",
+      "contactEmail": "sneha.22cse118@dept.edu",
+      "status": "open",
+      "authorId": "stu-dir-2",
+      "authorName": "Sneha Kulkarni",
+      "authorMemberId": "22CSE118",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section B",
+      "authorRole": "student",
+      "solvedByIds": [],
+      "responses": [],
+      "createdAt": "2026-10-31T09:30:00Z"
+    }
+  ],
+  "apps": [
+    {
+      "id": "app-1",
+      "appName": "PacketScope Visualizer",
+      "usedTechnologies": "Rust, WebAssembly, React, Tailwind CSS, libpcap",
+      "description": "Browser-based PCAP packet frame inspector crafted for Computer Networks (CS304) coursework so students can inspect TCP 3-way handshakes, congestion windows, and DNS lookups visually.",
+      "appType": "Educational Developer Tool",
+      "appLink": "https://wireshark.org",
+      "authorId": "stu-dir-3",
+      "authorName": "Arjun Nair",
+      "authorMemberId": "23CSE056",
+      "authorEmail": "arjun.23cse056@dept.edu",
+      "authorBatch": "2nd Year B.Tech CSE \u00b7 Section A",
+      "authorRole": "student",
+      "createdAt": "2026-10-22T16:40:00Z"
+    },
+    {
+      "id": "app-2",
+      "appName": "LatexQuick \u2014 IEEE Conference Paper Formatter",
+      "usedTechnologies": "TypeScript, KaTeX, Monaco Editor, Web Workers",
+      "description": "Zero-setup IEEE two-column research paper template generator and BibTeX citation checker tailored for final-year B.Tech capstone project reports.",
+      "appType": "Web Productivity App",
+      "appLink": "https://www.overleaf.com",
+      "authorId": "stu-dir-2",
+      "authorName": "Sneha Kulkarni",
+      "authorMemberId": "22CSE118",
+      "authorEmail": "sneha.22cse118@dept.edu",
+      "authorBatch": "3rd Year B.Tech CSE \u00b7 Section B",
+      "authorRole": "student",
+      "createdAt": "2026-10-26T11:05:00Z"
+    }
+  ],
+  "placements": [
+    {
+      "id": "place-1",
+      "companyName": "Atlassian Engineering India",
+      "roleTitle": "Software Development Engineer \u2014 Grad 2027",
+      "packageCtc": "\u20b938.0 LPA",
+      "location": "Bengaluru (Hybrid)",
+      "deadline": "2026-11-20",
+      "applyLink": "https://www.atlassian.com/company/careers",
+      "description": "Full-time distributed systems and cloud platform engineering drive for final and pre-final year CSE students. Includes 90-minute DSA + System Design coding assessment.",
+      "criteria": {
+        "requireCgpa": true,
+        "minCgpa": 8,
+        "requireLeetcode": true,
+        "minLeetcodeProblems": 200,
+        "requireHackerrank": true,
+        "minHackerrankFiveStars": 3,
+        "requireGithub": true,
+        "minGithubProjects": 5
+      },
+      "applicants": [],
+      "authorId": "system-dept",
+      "authorName": "Dr. K. Venkataraman (Placement Coordinator)",
+      "createdAt": "2026-10-27T10:00:00Z"
+    },
+    {
+      "id": "place-2",
+      "companyName": "Zoho Corporation",
+      "roleTitle": "Member Technical Staff (Core Systems & Web)",
+      "packageCtc": "\u20b914.5 LPA",
+      "location": "Chennai",
+      "deadline": "2026-11-28",
+      "applyLink": "https://www.zoho.com/careers/",
+      "description": "Product engineering drive focusing on algorithmic problem-solving, low-level OOP design, and full-stack application architecture.",
+      "criteria": {
+        "requireCgpa": true,
+        "minCgpa": 7,
+        "requireLeetcode": true,
+        "minLeetcodeProblems": 100,
+        "requireHackerrank": true,
+        "minHackerrankFiveStars": 2,
+        "requireGithub": true,
+        "minGithubProjects": 3
+      },
+      "applicants": [],
+      "authorId": "system-dept",
+      "authorName": "CSE Placement Cell",
+      "createdAt": "2026-10-29T09:15:00Z"
+    }
+  ],
+  "courses": [
+    {
+      "id": "course-1",
+      "courseCode": "CS412",
+      "title": "Distributed Systems & Cloud Native Engineering",
+      "instructorName": "Dr. Meenakshi Sundaram",
+      "semester": "Semester VII \u00b7 Honours Elective",
+      "credits": 4,
+      "schedule": "Mon, Wed, Fri \u00b7 10:00 AM \u2013 10:50 AM (LH-202)",
+      "prerequisites": "Operating Systems (CS301), Computer Networks (CS304)",
+      "description": "Covers Raft consensus, replicated state machines, gRPC microservices, container orchestration, and fault-tolerant storage engines with hands-on Go lab assignments.",
+      "resourceLink": "https://pdos.csail.mit.edu/6.824/",
+      "enrollments": [],
+      "authorId": "system-dept",
+      "createdAt": "2026-08-05T09:00:00Z"
+    },
+    {
+      "id": "course-2",
+      "courseCode": "CS318",
+      "title": "Applied Machine Learning & Deep Neural Architectures",
+      "instructorName": "Dr. Pradeep Kumar Rao",
+      "semester": "Semester VI \u00b7 Core Elective",
+      "credits": 4,
+      "schedule": "Tue, Thu \u00b7 02:00 PM \u2013 03:30 PM (AI Lab-1)",
+      "prerequisites": "Linear Algebra, Probability & Statistics, Python Programming",
+      "description": "Foundations of statistical learning, gradient optimization, convolutional & transformer architectures, model quantization, and reproducible evaluation benchmarks.",
+      "resourceLink": "https://pytorch.org/tutorials/",
+      "enrollments": [],
+      "authorId": "system-dept",
+      "createdAt": "2026-08-08T11:00:00Z"
+    }
+  ],
+  "facultyMembers": [
+    {
+      "id": "fac-1",
+      "name": "Dr. Meenakshi Sundaram",
+      "designation": "Professor & Head of Department (HOD)",
+      "specialization": "Distributed Systems, Cloud Architecture & Fault-Tolerant Computing",
+      "email": "hod.cse@dept.edu",
+      "phoneOrCabin": "HOD Chamber, Block-A, 3rd Floor (Room 301) \u00b7 Ext 101",
+      "qualification": "Ph.D in Computer Science (IIT Madras), M.Tech (IISc Bengaluru)",
+      "experienceYears": 22,
+      "bio": "Leading the CSE Department with 22+ years of research and teaching. Principal investigator for funded SERB and DST edge-cloud computing initiatives.",
+      "authorId": "system-dept",
+      "createdAt": "2026-07-01T09:00:00Z"
+    },
+    {
+      "id": "fac-2",
+      "name": "Dr. Pradeep Kumar Rao",
+      "designation": "Professor",
+      "specialization": "Machine Learning, Deep Learning Architectures & Knowledge Graphs",
+      "email": "pradeep.rao@dept.edu",
+      "phoneOrCabin": "Cabin LH-308 \u00b7 Ext 214",
+      "qualification": "Ph.D in AI/ML (IIT Bombay), B.Tech CSE",
+      "experienceYears": 18,
+      "bio": "Senior Professor mentoring undergraduate research in continual graph neural networks and scalable ML inference systems.",
+      "authorId": "system-dept",
+      "createdAt": "2026-07-05T10:00:00Z"
+    },
+    {
+      "id": "fac-3",
+      "name": "Dr. K. Venkataraman",
+      "designation": "Professor & Placement Coordinator",
+      "specialization": "Algorithms, Data Structures & High-Performance Computing",
+      "email": "venkataraman.k@dept.edu",
+      "phoneOrCabin": "Placement Cell Wing, Room 104 \u00b7 Ext 305",
+      "qualification": "Ph.D in Algorithms (IIT Delhi)",
+      "experienceYears": 16,
+      "bio": "Oversees campus placement drives, coding bootcamps, and industry internships for CSE undergraduates.",
+      "authorId": "system-dept",
+      "createdAt": "2026-07-10T11:00:00Z"
+    },
+    {
+      "id": "fac-4",
+      "name": "Dr. Ananya Sharma",
+      "designation": "Associate Professor",
+      "specialization": "Computer Networks, Cryptography & Network Security",
+      "email": "ananya.sharma@dept.edu",
+      "phoneOrCabin": "Cabin LH-212 \u00b7 Ext 180",
+      "qualification": "Ph.D in Cybersecurity (IIIT Hyderabad)",
+      "experienceYears": 12,
+      "bio": "Teaches advanced computer networks, cryptography, and leads student ethical hacking & CTF research groups.",
+      "authorId": "system-dept",
+      "createdAt": "2026-07-15T09:30:00Z"
+    },
+    {
+      "id": "fac-5",
+      "name": "Prof. Rajeshwar Reddy",
+      "designation": "Assistant Professor",
+      "specialization": "Compilers, Operating Systems & Linux Kernel Internals",
+      "email": "rajeshwar.reddy@dept.edu",
+      "phoneOrCabin": "Systems Lab-2, Room 204 \u00b7 Ext 142",
+      "qualification": "M.Tech CSE (NIT Warangal), Pursuing Ph.D",
+      "experienceYears": 8,
+      "bio": "Coordinates the Systems Programming Laboratory and open-source Linux kernel student projects.",
+      "authorId": "system-dept",
+      "createdAt": "2026-07-20T14:00:00Z"
+    },
+    {
+      "id": "fac-6",
+      "name": "Dr. S. Radhakrishnan",
+      "designation": "Associate Professor",
+      "specialization": "Database Management Systems, Big Data & Distributed SQL",
+      "email": "radhakrishnan.s@dept.edu",
+      "phoneOrCabin": "Cabin LH-315 \u00b7 Ext 228",
+      "qualification": "Ph.D in Databases (Anna University)",
+      "experienceYears": 14,
+      "bio": "Expert in transaction management, relational query optimization, and distributed storage engines.",
+      "authorId": "system-dept",
+      "createdAt": "2026-08-01T10:00:00Z"
+    }
+  ],
+  "resources": [
+    {
+      "id": "res-1",
+      "title": "Compiler Design & Operating Systems Lab Manual (2026 Regulation)",
+      "resourceType": "Lab Manual",
+      "subjectOrLab": "CS301 / CS306 Systems Laboratory",
+      "description": "Complete POSIX system call exercises, Lex/Yacc grammar experiments, xv6 kernel scheduling tasks, and viva evaluation rubrics.",
+      "resourceLink": "https://pdos.csail.mit.edu/6.828/",
+      "authorId": "system-dept",
+      "authorName": "CSE Systems Faculty Group",
+      "createdAt": "2026-08-20T09:00:00Z"
+    },
+    {
+      "id": "res-2",
+      "title": "CSE Competitive Coding & Placement Preparation Roadmap",
+      "resourceType": "Coding Club Guide",
+      "subjectOrLab": "Department Coding & Algorithms Forum",
+      "description": "Curated 180-problem topic sheet covering graphs, dynamic programming, trees, SQL window functions, and OS/DBMS interview fundamentals.",
+      "resourceLink": "https://cp-algorithms.com/",
+      "authorId": "system-dept",
+      "authorName": "CSE Placement & Coding Cell",
+      "createdAt": "2026-09-10T12:00:00Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1",
+      "type": "problem_posted",
+      "title": "New Problem Statement: PDF OCR Table Extraction Misalignment",
+      "message": "Sneha Kulkarni (22CSE118) posted an open problem statement in Result Analytics Script. Check if you can propose a solution.",
+      "targetSection": "problems",
+      "targetItemId": "prob-2",
+      "actorId": "stu-dir-2",
+      "actorName": "Sneha Kulkarni",
+      "readByUserIds": [],
+      "createdAt": "2026-10-31T09:30:00Z"
+    },
+    {
+      "id": "notif-2",
+      "type": "problem_posted",
+      "title": "New Problem Statement: Automated Lab Attendance Sync Issue",
+      "message": "Rohan Deshmukh (22CSE104) posted an open problem statement in CSE Lab Session Tracker v2.",
+      "targetSection": "problems",
+      "targetItemId": "prob-1",
+      "actorId": "stu-dir-1",
+      "actorName": "Rohan Deshmukh",
+      "readByUserIds": [],
+      "createdAt": "2026-10-29T13:15:00Z"
+    },
+    {
+      "id": "notif-3",
+      "type": "placement_posted",
+      "title": "Placement Drive Reminder: Atlassian Engineering India (\u20b938.0 LPA)",
+      "message": "Applications are closing on 2026-11-20. Ensure your LeetCode and GitHub requirements are satisfied in My Profile.",
+      "targetSection": "placements",
+      "targetItemId": "place-1",
+      "actorId": "system-dept",
+      "actorName": "CSE Placement Cell",
+      "readByUserIds": [],
+      "createdAt": "2026-10-27T10:00:00Z"
+    },
+    {
+      "id": "notif-4",
+      "type": "interview_posted",
+      "title": "New Interview Experience: Atlassian SDE Graduate 2027",
+      "message": "Rohan Deshmukh (22CSE104) posted a 4-round technical and values interview breakdown.",
+      "targetSection": "interview-experience",
+      "targetItemId": "int-1",
+      "actorId": "stu-dir-1",
+      "actorName": "Rohan Deshmukh",
+      "readByUserIds": [],
+      "createdAt": "2026-10-28T16:00:00Z"
+    }
+  ],
+  "personalReminders": [
+    {
+      "id": "rem-1",
+      "userId": "stu-dir-1",
+      "title": "Review Atlassian OA Topics: Multi-source BFS & Graph cycles",
+      "note": "Focus on time complexity proofs and concurrent cache implementation",
+      "dueDate": "2026-11-15",
+      "category": "placement",
+      "priority": "High",
+      "completed": false,
+      "createdAt": "2026-10-28T10:00:00Z"
+    },
+    {
+      "id": "rem-2",
+      "userId": "stu-dir-1",
+      "title": "Resolve Lab Attendance subnet duplicate IP issue",
+      "note": "Implement MAC binding or local token check-in",
+      "dueDate": "2026-11-08",
+      "category": "problem_statement",
+      "priority": "Normal",
+      "completed": false,
+      "createdAt": "2026-10-29T14:00:00Z"
+    }
+  ],
+  "adminPin": "",
+  "staffAccounts": [],
+  "adminInitialized": false
+}

@@ -1,0 +1,6 @@
+{
+  "name": "CSE Department Portal",
+  "description": "Official Computer Science & Engineering Department Portal for hackathons, student projects, problem statements, apps & technologies, placements, courses, faculty achievements, and coding progress tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
