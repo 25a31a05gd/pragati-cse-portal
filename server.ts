@@ -1,3 +1,5 @@
+import 'dotenv/config';
+import dns from 'dns';
 import express, { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import helmet from 'helmet';
@@ -8,9 +10,13 @@ import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   checkDatabaseReadiness,
+  closeDb,
+  getConnectionMetadata,
   requireDb,
   schema,
 } from './src/db/index';
+
+dns.setDefaultResultOrder('ipv4first');
 import {
   createSupabaseAuthUser,
   deleteSupabaseAuthUser,
@@ -258,16 +264,45 @@ function asyncHandler(
   };
 }
 
-function getPgErrorCode(err: unknown): string | undefined {
-  let current: unknown = err;
-  for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth++) {
-    const candidate = current as { code?: unknown; cause?: unknown };
-    if (typeof candidate.code === 'string' && candidate.code.trim()) {
-      return candidate.code;
+function getPgErrorCode(err: unknown, depth = 0): string | undefined {
+  if (depth > 5 || !err || typeof err !== 'object') {
+    return undefined;
+  }
+  const candidate = err as { code?: unknown; cause?: unknown; errors?: unknown };
+  if (typeof candidate.code === 'string' && candidate.code.trim()) {
+    return candidate.code.trim();
+  }
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      const innerCode = getPgErrorCode(inner, depth + 1);
+      if (innerCode) return innerCode;
     }
-    current = candidate.cause;
+  }
+  if (candidate.cause) {
+    return getPgErrorCode(candidate.cause, depth + 1);
   }
   return undefined;
+}
+
+const TRANSIENT_DB_ERROR_CODES = new Set([
+  'ENETUNREACH',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+]);
+
+function isDbConnectivityError(err: unknown): boolean {
+  const code = getPgErrorCode(err);
+  if (code && TRANSIENT_DB_ERROR_CODES.has(code)) {
+    return true;
+  }
+  if (err instanceof Error && /Database connection is not configured/i.test(err.message)) {
+    return true;
+  }
+  return false;
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -429,29 +464,40 @@ async function startServer() {
   app.use('/api', apiRateLimiter);
   app.use(attachUser);
 
-  // 0. Development-only readiness check (never exposed in production)
-  if (process.env.NODE_ENV !== 'production') {
-    app.get(
-      '/api/health',
-      asyncHandler(async (_req: Request, res: Response) => {
-        res.setHeader('Cache-Control', 'no-store');
-        const dbReadiness = await checkDatabaseReadiness();
-        res.json({
-          databaseConfigured: Boolean(process.env.DATABASE_URL),
-          supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
-          supabaseSecretConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-          initialAdminEmailConfigured: Boolean(
-            (process.env.INITIAL_ADMIN_EMAIL || '').replace(/^['"]+|['"]+$/g, '').trim()
-          ),
-          codingVerifySecretConfigured: Boolean(
-            (process.env.CODING_VERIFY_HMAC_SECRET || '').trim()
-          ),
-          githubTokenConfigured: Boolean((process.env.GITHUB_TOKEN || '').trim()),
+  // 0. Health check (production returns safe DB readiness 200/503; dev includes non-secret env config booleans)
+  app.get(
+    '/api/health',
+    asyncHandler(async (_req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store');
+      const dbReadiness = await checkDatabaseReadiness();
+      if (process.env.NODE_ENV === 'production') {
+        res.status(dbReadiness.connected ? 200 : 503).json({
+          ok: dbReadiness.connected,
+          status: dbReadiness.connected ? 'ok' : 'degraded',
+          environment: 'production',
           database: dbReadiness,
         });
-      })
-    );
-  }
+        return;
+      }
+
+      res.json({
+        ok: dbReadiness.connected,
+        status: dbReadiness.connected ? 'ok' : 'degraded',
+        environment: process.env.NODE_ENV || 'development',
+        databaseConfigured: Boolean(process.env.DATABASE_URL),
+        supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
+        supabaseSecretConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+        initialAdminEmailConfigured: Boolean(
+          (process.env.INITIAL_ADMIN_EMAIL || '').replace(/^['"]+|['"]+$/g, '').trim()
+        ),
+        codingVerifySecretConfigured: Boolean(
+          (process.env.CODING_VERIFY_HMAC_SECRET || '').trim()
+        ),
+        githubTokenConfigured: Boolean((process.env.GITHUB_TOKEN || '').trim()),
+        database: dbReadiness,
+      });
+    })
+  );
 
   // 1. Bootstrap portal data (public overview vs authenticated full portal)
   app.get(
@@ -665,7 +711,12 @@ async function startServer() {
 
       const sessionResult = await signInSupabasePassword(cleanEmail, cleanPassword);
       if ('error' in sessionResult) {
-        res.status(500).json({ error: 'Admin created, but session initialization failed. Please log in.' });
+        const status = sessionResult.unavailable ? 503 : 500;
+        res.status(status).json({
+          error: sessionResult.unavailable
+            ? sessionResult.error
+            : 'Admin created, but session initialization failed. Please log in.',
+        });
         return;
       }
 
@@ -717,6 +768,10 @@ async function startServer() {
 
       const verifyCurrent = await signInSupabasePassword(user.email, cleanCurrent);
       if ('error' in verifyCurrent) {
+        if (verifyCurrent.unavailable) {
+          res.status(503).json({ error: verifyCurrent.error });
+          return;
+        }
         res.status(401).json({ error: 'Incorrect current password. Please verify and try again.' });
         return;
       }
@@ -872,7 +927,12 @@ async function startServer() {
 
     const sessionResult = await signInSupabasePassword(cleanEmail, cleanPassword);
     if ('error' in sessionResult) {
-      res.status(500).json({ error: 'Account created, but auto-login failed. Please sign in.' });
+      const status = sessionResult.unavailable ? 503 : 500;
+      res.status(status).json({
+        error: sessionResult.unavailable
+          ? sessionResult.error
+          : 'Account created, but auto-login failed. Please sign in.',
+      });
       return;
     }
 
@@ -958,6 +1018,10 @@ async function startServer() {
 
       const authResult = await signInSupabasePassword(userRow.email, cleanPassword);
       if ('error' in authResult) {
+        if (authResult.unavailable) {
+          res.status(503).json({ error: authResult.error });
+          return;
+        }
         res.status(401).json({ error: 'Invalid password. Please try again.' });
         return;
       }
@@ -5934,6 +5998,11 @@ async function startServer() {
     })
   );
 
+  // Return clean JSON 404 for unknown API endpoints instead of falling through to SPA HTML
+  app.all('/api/*', (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'API endpoint not found.' });
+  });
+
   // Global safe API error handler (never expose internal credentials or stack traces)
   app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
     if (res.headersSent) {
@@ -5949,6 +6018,16 @@ async function startServer() {
       res.status(503).json({
         error:
           'Database schema migrations have not been applied to Supabase PostgreSQL yet.',
+      });
+      return;
+    }
+
+    if (isDbConnectivityError(err)) {
+      const dbCode = getPgErrorCode(err) || 'DB_UNAVAILABLE';
+      console.error('[API DB Connectivity Error]', dbCode);
+      res.status(503).json({
+        error:
+          'Database service is temporarily unreachable. Please verify database configuration and try again shortly.',
       });
       return;
     }
@@ -5980,14 +6059,63 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`CSE Department Portal server running on http://0.0.0.0:${PORT}`);
     if (!isSupabaseConfigured()) {
       console.warn(
         '[Startup Notice] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set in environment.'
       );
     }
+    const dbMeta = getConnectionMetadata();
+    if (!dbMeta.configured || dbMeta.connectionMode === 'invalid_url') {
+      console.warn(
+        '[Startup Notice] DATABASE_URL is missing or invalid in environment.'
+      );
+    } else if (dbMeta.ipv4PoolerRecommended) {
+      console.warn(
+        '[Startup Warning] DATABASE_URL points to a direct Supabase host (*.supabase.co). On IPv4-only hosts like Render, switch to the Supabase Session Pooler (port 5432) or Transaction Pooler (port 6543, *.pooler.supabase.com) to avoid ENETUNREACH errors.'
+      );
+    }
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !(process.env.CODING_VERIFY_HMAC_SECRET || '').trim()
+    ) {
+      console.warn(
+        '[Startup Notice] CODING_VERIFY_HMAC_SECRET is not set; using derived service key for coding ownership verification.'
+      );
+    }
   });
+
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[Shutdown] Received ${signal}; closing HTTP server and database pool...`);
+    const forceTimer = setTimeout(() => {
+      console.error('[Shutdown] Timed out waiting for connections; exiting.');
+      process.exit(1);
+    }, 10000);
+    forceTimer.unref();
+
+    server.close(async () => {
+      await closeDb();
+      clearTimeout(forceTimer);
+      process.exit(0);
+    });
+  };
+
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
 }
 
-startServer();
+process.on('unhandledRejection', (reason) => {
+  const code = getPgErrorCode(reason);
+  const label = code || (reason instanceof Error ? reason.name : 'UnknownRejection');
+  console.error('[Process Warning] Unhandled promise rejection:', label);
+});
+
+startServer().catch((err) => {
+  const code = getPgErrorCode(err);
+  console.error('[Fatal Startup Error]', code || (err instanceof Error ? err.name : 'StartupError'));
+  process.exit(1);
+});

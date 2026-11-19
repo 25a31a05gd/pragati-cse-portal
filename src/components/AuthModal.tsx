@@ -104,8 +104,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const res = await fetch('/api/auth/admin-status');
       if (res.ok) {
-        const data = await res.json();
-        setAdminInitialized(Boolean(data.initialized));
+        const data = await res.json().catch(() => ({}));
+        setAdminInitialized(Boolean(data?.initialized));
       }
     } catch {
       // fallback

@@ -5,6 +5,8 @@ var __export = (target, all) => {
 };
 
 // server.ts
+import "dotenv/config";
+import dns from "dns";
 import express from "express";
 import crypto from "crypto";
 import helmet from "helmet";
@@ -698,7 +700,8 @@ function resolveDatabaseConfig(rawUrl) {
       connectionMode,
       port,
       prepareDisabled: !prepare,
-      sslMode
+      sslMode,
+      ipv4PoolerRecommended: connectionMode === "direct"
     }
   };
 }
@@ -753,6 +756,29 @@ function getConnectionMetadata() {
     sslMode: "disabled"
   };
 }
+function extractDatabaseErrorCode(err, depth = 0) {
+  if (depth > 5 || !err || typeof err !== "object") {
+    return void 0;
+  }
+  const candidate = err;
+  if (typeof candidate.code === "string" && candidate.code.trim()) {
+    return candidate.code.trim();
+  }
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      const innerCode = extractDatabaseErrorCode(inner, depth + 1);
+      if (innerCode) return innerCode;
+    }
+  }
+  if (candidate.cause) {
+    const causeCode = extractDatabaseErrorCode(candidate.cause, depth + 1);
+    if (causeCode) return causeCode;
+  }
+  if (typeof candidate.name === "string" && candidate.name.trim() && candidate.name !== "Error" && candidate.name !== "AggregateError") {
+    return candidate.name.trim();
+  }
+  return void 0;
+}
 async function checkDatabaseReadiness() {
   const ready = ensureInitialized();
   const metadata = getConnectionMetadata();
@@ -772,13 +798,21 @@ async function checkDatabaseReadiness() {
       latencyMs: Date.now() - startedAt
     };
   } catch (err) {
-    const pgError = err;
+    const errorCode = extractDatabaseErrorCode(err) || "CONNECTION_FAILED";
     return {
       ...metadata,
       connected: false,
       latencyMs: Date.now() - startedAt,
-      errorCode: pgError?.code || pgError?.name || "CONNECTION_FAILED"
+      errorCode
     };
+  }
+}
+async function closeDb() {
+  if (cachedSql) {
+    const sqlClient = cachedSql;
+    cachedSql = null;
+    cachedDb = null;
+    await sqlClient.end({ timeout: 5 }).catch(() => void 0);
   }
 }
 
@@ -824,6 +858,19 @@ function createEphemeralAuthClient() {
     }
   });
 }
+function isTransientSupabaseError(err) {
+  if (!err || typeof err !== "object") return false;
+  const candidate = err;
+  const name = typeof candidate.name === "string" ? candidate.name : "";
+  const status = typeof candidate.status === "number" ? candidate.status : void 0;
+  const msg = typeof candidate.message === "string" ? candidate.message : "";
+  const code = typeof candidate.code === "string" ? candidate.code : "";
+  if (name === "AuthRetryableFetchError") return true;
+  if (status === 0 || status !== void 0 && status >= 500) return true;
+  return /ENETUNREACH|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|network/i.test(
+    `${code} ${msg}`
+  );
+}
 async function verifySupabaseJwt(accessToken) {
   if (!accessToken || !isSupabaseConfigured()) {
     return null;
@@ -831,76 +878,135 @@ async function verifySupabaseJwt(accessToken) {
   try {
     const admin = getSupabaseAdmin();
     const { data, error } = await admin.auth.getUser(accessToken);
-    if (error || !data?.user) {
+    if (error) {
+      if (isTransientSupabaseError(error)) {
+        console.warn("[Supabase Auth] Transient error during JWT verification.");
+      }
+      return null;
+    }
+    if (!data?.user) {
       return null;
     }
     return data.user;
-  } catch {
+  } catch (err) {
+    if (isTransientSupabaseError(err)) {
+      console.warn("[Supabase Auth] Network error during JWT verification.");
+    }
     return null;
   }
 }
 async function signInSupabasePassword(email, password) {
-  const authClient = createEphemeralAuthClient();
-  const { data, error } = await authClient.auth.signInWithPassword({
-    email,
-    password
-  });
-  if (error || !data.session?.access_token || !data.user) {
-    return { error: error?.message || "Invalid login credentials." };
-  }
-  return {
-    accessToken: data.session.access_token,
-    user: data.user
-  };
-}
-async function createSupabaseAuthUser(params) {
-  const admin = getSupabaseAdmin();
-  const { data, error } = await admin.auth.admin.createUser({
-    email: params.email,
-    password: params.password,
-    email_confirm: true,
-    app_metadata: {
-      role: params.role
-    },
-    user_metadata: {
-      name: params.name,
-      memberId: params.memberId
+  try {
+    const authClient = createEphemeralAuthClient();
+    const { data, error } = await authClient.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (error) {
+      if (isTransientSupabaseError(error)) {
+        console.warn("[Supabase Auth] Authentication service unreachable during password sign-in.");
+        return {
+          error: "Authentication service is temporarily unreachable. Please try again shortly.",
+          unavailable: true
+        };
+      }
+      return { error: error.message || "Invalid login credentials." };
     }
-  });
-  if (error || !data?.user) {
-    const msg = error?.message || "Unable to create authentication account.";
-    const status = /already|exists|registered/i.test(msg) ? 409 : 400;
-    return { error: msg, status };
-  }
-  return { user: data.user };
-}
-async function updateSupabaseAuthUser(userId, updates) {
-  const admin = getSupabaseAdmin();
-  const payload = {};
-  if (updates.email !== void 0) {
-    payload.email = updates.email;
-    payload.email_confirm = true;
-  }
-  if (updates.password !== void 0) {
-    payload.password = updates.password;
-  }
-  if (updates.role !== void 0) {
-    payload.app_metadata = { role: updates.role };
-  }
-  if (updates.name !== void 0 || updates.memberId !== void 0) {
-    payload.user_metadata = {
-      ...updates.name !== void 0 ? { name: updates.name } : {},
-      ...updates.memberId !== void 0 ? { memberId: updates.memberId } : {}
+    if (!data.session?.access_token || !data.user) {
+      return { error: "Invalid login credentials." };
+    }
+    return {
+      accessToken: data.session.access_token,
+      user: data.user
+    };
+  } catch (err) {
+    if (isTransientSupabaseError(err)) {
+      console.warn("[Supabase Auth] Network exception during password sign-in.");
+      return {
+        error: "Authentication service is temporarily unreachable. Please try again shortly.",
+        unavailable: true
+      };
+    }
+    return {
+      error: "Authentication service failed while verifying credentials.",
+      unavailable: true
     };
   }
-  if (updates.banned !== void 0) {
-    payload.ban_duration = updates.banned ? "876000h" : "none";
+}
+async function createSupabaseAuthUser(params) {
+  try {
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin.auth.admin.createUser({
+      email: params.email,
+      password: params.password,
+      email_confirm: true,
+      app_metadata: {
+        role: params.role
+      },
+      user_metadata: {
+        name: params.name,
+        memberId: params.memberId
+      }
+    });
+    if (error || !data?.user) {
+      if (error && isTransientSupabaseError(error)) {
+        console.warn("[Supabase Auth] Transient failure while creating user account.");
+        return {
+          error: "Authentication service is temporarily unreachable. Please try again shortly.",
+          status: 503
+        };
+      }
+      const msg = error?.message || "Unable to create authentication account.";
+      const status = /already|exists|registered/i.test(msg) ? 409 : 400;
+      return { error: msg, status };
+    }
+    return { user: data.user };
+  } catch (err) {
+    console.warn("[Supabase Auth] Failed to create user account.");
+    return {
+      error: isTransientSupabaseError(err) ? "Authentication service is temporarily unreachable. Please try again shortly." : err instanceof Error ? err.message : "Unable to create authentication account.",
+      status: 503
+    };
   }
-  const { error } = await admin.auth.admin.updateUserById(userId, payload);
-  if (error) {
-    return { error: error.message };
+}
+async function updateSupabaseAuthUser(userId, updates) {
+  try {
+    const admin = getSupabaseAdmin();
+    const payload = {};
+    if (updates.email !== void 0) {
+      payload.email = updates.email;
+      payload.email_confirm = true;
+    }
+    if (updates.password !== void 0) {
+      payload.password = updates.password;
+    }
+    if (updates.role !== void 0) {
+      payload.app_metadata = { role: updates.role };
+    }
+    if (updates.name !== void 0 || updates.memberId !== void 0) {
+      payload.user_metadata = {
+        ...updates.name !== void 0 ? { name: updates.name } : {},
+        ...updates.memberId !== void 0 ? { memberId: updates.memberId } : {}
+      };
+    }
+    if (updates.banned !== void 0) {
+      payload.ban_duration = updates.banned ? "876000h" : "none";
+    }
+    const { error } = await admin.auth.admin.updateUserById(userId, payload);
+    if (error) {
+      if (isTransientSupabaseError(error)) {
+        return {
+          error: "Authentication service is temporarily unreachable. Please try again shortly."
+        };
+      }
+      return { error: error.message };
+    }
+    return {};
+  } catch (err) {
+    return {
+      error: isTransientSupabaseError(err) ? "Authentication service is temporarily unreachable. Please try again shortly." : err instanceof Error ? err.message : "Failed to update authentication account."
+    };
   }
-  return {};
 }
 async function deleteSupabaseAuthUser(userId) {
   try {
@@ -1113,6 +1219,70 @@ function buildGithubApiHeaders() {
   }
   return headers;
 }
+var RETRYABLE_NETWORK_CODES = /* @__PURE__ */ new Set([
+  "ENETUNREACH",
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EAI_AGAIN",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+  "TimeoutError",
+  "AbortError"
+]);
+function extractNetworkErrorCode(err, depth = 0) {
+  if (depth > 4 || !err || typeof err !== "object") {
+    return "NETWORK_ERROR";
+  }
+  const candidate = err;
+  if (typeof candidate.code === "string" && candidate.code.trim()) {
+    return candidate.code.trim();
+  }
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      const innerCode = extractNetworkErrorCode(inner, depth + 1);
+      if (innerCode !== "NETWORK_ERROR") return innerCode;
+    }
+  }
+  if (candidate.cause) {
+    const causeCode = extractNetworkErrorCode(candidate.cause, depth + 1);
+    if (causeCode !== "NETWORK_ERROR") return causeCode;
+  }
+  if (typeof candidate.name === "string" && candidate.name.trim()) {
+    return candidate.name.trim();
+  }
+  return "NETWORK_ERROR";
+}
+async function fetchWithRetry(url, init, timeoutMs, label) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (attempt === 0 && (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504)) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      if (!res.ok && res.status !== 404) {
+        console.warn(`[CodingStats:${label}] Upstream HTTP ${res.status}`);
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      const code = extractNetworkErrorCode(err);
+      if (attempt === 0 && (RETRYABLE_NETWORK_CODES.has(code) || err instanceof TypeError)) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      console.warn(`[CodingStats:${label}] Network request failed (${code})`);
+      throw err;
+    }
+  }
+  console.warn(`[CodingStats:${label}] Network request failed (${extractNetworkErrorCode(lastError)})`);
+  throw lastError;
+}
 async function fetchGithubRepoCount(username) {
   if (!username) {
     return { status: "empty", count: 0 };
@@ -1121,10 +1291,14 @@ async function fetchGithubRepoCount(username) {
   const cached = getCachedValue(scalarOkCache, cacheKey);
   if (cached) return cached;
   try {
-    const res = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-      headers: buildGithubApiHeaders(),
-      signal: AbortSignal.timeout(4e3)
-    });
+    const res = await fetchWithRetry(
+      `https://api.github.com/users/${encodeURIComponent(username)}`,
+      {
+        headers: buildGithubApiHeaders()
+      },
+      4500,
+      "github_stats"
+    );
     if (res.status === 404) {
       return { status: "not_found", count: 0 };
     }
@@ -1165,16 +1339,20 @@ async function fetchLeetcodeCounts(username) {
         }
       }
     `;
-    const res = await fetch("https://leetcode.com/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Referer: "https://leetcode.com",
-        "User-Agent": "CSE-Department-Portal"
+    const res = await fetchWithRetry(
+      "https://leetcode.com/graphql",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Referer: "https://leetcode.com",
+          "User-Agent": "CSE-Department-Portal"
+        },
+        body: JSON.stringify({ query, variables: { username } })
       },
-      body: JSON.stringify({ query, variables: { username } }),
-      signal: AbortSignal.timeout(4e3)
-    });
+      4500,
+      "leetcode_stats"
+    );
     if (res.status === 404) {
       return { status: "not_found", total: 0, easy: 0, medium: 0, hard: 0 };
     }
@@ -1211,15 +1389,16 @@ async function fetchHackerrankFiveStars(username) {
   const cached = getCachedValue(scalarOkCache, cacheKey);
   if (cached) return cached;
   try {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://www.hackerrank.com/rest/hackers/${encodeURIComponent(username)}/badges`,
       {
         headers: {
           Accept: "application/json",
           "User-Agent": "CSE-Department-Portal"
-        },
-        signal: AbortSignal.timeout(4e3)
-      }
+        }
+      },
+      4500,
+      "hackerrank_stats"
     );
     if (res.status === 404) {
       return { status: "not_found", count: 0 };
@@ -1247,10 +1426,14 @@ async function fetchCodingProfileBio(platform, username) {
   }
   try {
     if (platform === "github") {
-      const res2 = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-        headers: buildGithubApiHeaders(),
-        signal: AbortSignal.timeout(4500)
-      });
+      const res2 = await fetchWithRetry(
+        `https://api.github.com/users/${encodeURIComponent(username)}`,
+        {
+          headers: buildGithubApiHeaders()
+        },
+        4500,
+        "github_bio"
+      );
       if (res2.status === 404) {
         return { status: "not_found", bioText: "" };
       }
@@ -1276,16 +1459,20 @@ async function fetchCodingProfileBio(platform, username) {
           }
         }
       `;
-      const res2 = await fetch("https://leetcode.com/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Referer: "https://leetcode.com",
-          "User-Agent": "CSE-Department-Portal"
+      const res2 = await fetchWithRetry(
+        "https://leetcode.com/graphql",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Referer: "https://leetcode.com",
+            "User-Agent": "CSE-Department-Portal"
+          },
+          body: JSON.stringify({ query, variables: { username } })
         },
-        body: JSON.stringify({ query, variables: { username } }),
-        signal: AbortSignal.timeout(4500)
-      });
+        4500,
+        "leetcode_bio"
+      );
       if (res2.status === 404) {
         return { status: "not_found", bioText: "" };
       }
@@ -1306,15 +1493,16 @@ async function fetchCodingProfileBio(platform, username) {
       ].filter(Boolean).join("\n");
       return { status: "ok", bioText: combined2 };
     }
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://www.hackerrank.com/rest/contests/master/hackers/${encodeURIComponent(username)}/profile`,
       {
         headers: {
           Accept: "application/json",
           "User-Agent": "CSE-Department-Portal"
-        },
-        signal: AbortSignal.timeout(4500)
-      }
+        }
+      },
+      4500,
+      "hackerrank_bio"
     );
     if (res.status === 404) {
       return { status: "not_found", bioText: "" };
@@ -2238,6 +2426,7 @@ async function searchStudentsDirectory(db, queryText, options = {}) {
 }
 
 // server.ts
+dns.setDefaultResultOrder("ipv4first");
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
 var uuidSchema = z.string().uuid("Invalid record identifier.");
@@ -2373,16 +2562,43 @@ function asyncHandler(fn) {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
-function getPgErrorCode(err) {
-  let current = err;
-  for (let depth = 0; depth < 5 && current && typeof current === "object"; depth++) {
-    const candidate = current;
-    if (typeof candidate.code === "string" && candidate.code.trim()) {
-      return candidate.code;
+function getPgErrorCode(err, depth = 0) {
+  if (depth > 5 || !err || typeof err !== "object") {
+    return void 0;
+  }
+  const candidate = err;
+  if (typeof candidate.code === "string" && candidate.code.trim()) {
+    return candidate.code.trim();
+  }
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      const innerCode = getPgErrorCode(inner, depth + 1);
+      if (innerCode) return innerCode;
     }
-    current = candidate.cause;
+  }
+  if (candidate.cause) {
+    return getPgErrorCode(candidate.cause, depth + 1);
   }
   return void 0;
+}
+var TRANSIENT_DB_ERROR_CODES = /* @__PURE__ */ new Set([
+  "ENETUNREACH",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNRESET",
+  "EHOSTUNREACH"
+]);
+function isDbConnectivityError(err) {
+  const code = getPgErrorCode(err);
+  if (code && TRANSIENT_DB_ERROR_CODES.has(code)) {
+    return true;
+  }
+  if (err instanceof Error && /Database connection is not configured/i.test(err.message)) {
+    return true;
+  }
+  return false;
 }
 function isUniqueViolation(err) {
   return getPgErrorCode(err) === "23505";
@@ -2517,28 +2733,38 @@ async function startServer() {
   app.use("/api/auth", authRateLimiter);
   app.use("/api", apiRateLimiter);
   app.use(attachUser);
-  if (process.env.NODE_ENV !== "production") {
-    app.get(
-      "/api/health",
-      asyncHandler(async (_req, res) => {
-        res.setHeader("Cache-Control", "no-store");
-        const dbReadiness = await checkDatabaseReadiness();
-        res.json({
-          databaseConfigured: Boolean(process.env.DATABASE_URL),
-          supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
-          supabaseSecretConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-          initialAdminEmailConfigured: Boolean(
-            (process.env.INITIAL_ADMIN_EMAIL || "").replace(/^['"]+|['"]+$/g, "").trim()
-          ),
-          codingVerifySecretConfigured: Boolean(
-            (process.env.CODING_VERIFY_HMAC_SECRET || "").trim()
-          ),
-          githubTokenConfigured: Boolean((process.env.GITHUB_TOKEN || "").trim()),
+  app.get(
+    "/api/health",
+    asyncHandler(async (_req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      const dbReadiness = await checkDatabaseReadiness();
+      if (process.env.NODE_ENV === "production") {
+        res.status(dbReadiness.connected ? 200 : 503).json({
+          ok: dbReadiness.connected,
+          status: dbReadiness.connected ? "ok" : "degraded",
+          environment: "production",
           database: dbReadiness
         });
-      })
-    );
-  }
+        return;
+      }
+      res.json({
+        ok: dbReadiness.connected,
+        status: dbReadiness.connected ? "ok" : "degraded",
+        environment: process.env.NODE_ENV || "development",
+        databaseConfigured: Boolean(process.env.DATABASE_URL),
+        supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
+        supabaseSecretConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+        initialAdminEmailConfigured: Boolean(
+          (process.env.INITIAL_ADMIN_EMAIL || "").replace(/^['"]+|['"]+$/g, "").trim()
+        ),
+        codingVerifySecretConfigured: Boolean(
+          (process.env.CODING_VERIFY_HMAC_SECRET || "").trim()
+        ),
+        githubTokenConfigured: Boolean((process.env.GITHUB_TOKEN || "").trim()),
+        database: dbReadiness
+      });
+    })
+  );
   app.get(
     "/api/bootstrap",
     asyncHandler(async (req, res) => {
@@ -2683,7 +2909,10 @@ async function startServer() {
       }
       const sessionResult = await signInSupabasePassword(cleanEmail, cleanPassword);
       if ("error" in sessionResult) {
-        res.status(500).json({ error: "Admin created, but session initialization failed. Please log in." });
+        const status = sessionResult.unavailable ? 503 : 500;
+        res.status(status).json({
+          error: sessionResult.unavailable ? sessionResult.error : "Admin created, but session initialization failed. Please log in."
+        });
         return;
       }
       const record = await getUserWithProfilesById(db, newUserId);
@@ -2725,6 +2954,10 @@ async function startServer() {
       }
       const verifyCurrent = await signInSupabasePassword(user.email, cleanCurrent);
       if ("error" in verifyCurrent) {
+        if (verifyCurrent.unavailable) {
+          res.status(503).json({ error: verifyCurrent.error });
+          return;
+        }
         res.status(401).json({ error: "Incorrect current password. Please verify and try again." });
         return;
       }
@@ -2836,7 +3069,10 @@ async function startServer() {
     }
     const sessionResult = await signInSupabasePassword(cleanEmail, cleanPassword);
     if ("error" in sessionResult) {
-      res.status(500).json({ error: "Account created, but auto-login failed. Please sign in." });
+      const status = sessionResult.unavailable ? 503 : 500;
+      res.status(status).json({
+        error: sessionResult.unavailable ? sessionResult.error : "Account created, but auto-login failed. Please sign in."
+      });
       return;
     }
     const record = await getUserWithProfilesById(db, newUserId);
@@ -2901,6 +3137,10 @@ async function startServer() {
       }
       const authResult = await signInSupabasePassword(userRow.email, cleanPassword);
       if ("error" in authResult) {
+        if (authResult.unavailable) {
+          res.status(503).json({ error: authResult.error });
+          return;
+        }
         res.status(401).json({ error: "Invalid password. Please try again." });
         return;
       }
@@ -6336,6 +6576,9 @@ async function startServer() {
       res.json({ ok: true });
     })
   );
+  app.all("/api/*", (_req, res) => {
+    res.status(404).json({ error: "API endpoint not found." });
+  });
   app.use((err, req, res, next) => {
     if (res.headersSent) {
       next(err);
@@ -6348,6 +6591,14 @@ async function startServer() {
     if (isMissingTableOrRelation(err)) {
       res.status(503).json({
         error: "Database schema migrations have not been applied to Supabase PostgreSQL yet."
+      });
+      return;
+    }
+    if (isDbConnectivityError(err)) {
+      const dbCode = getPgErrorCode(err) || "DB_UNAVAILABLE";
+      console.error("[API DB Connectivity Error]", dbCode);
+      res.status(503).json({
+        error: "Database service is temporarily unreachable. Please verify database configuration and try again shortly."
       });
       return;
     }
@@ -6370,13 +6621,55 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`CSE Department Portal server running on http://0.0.0.0:${PORT}`);
     if (!isSupabaseConfigured()) {
       console.warn(
         "[Startup Notice] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set in environment."
       );
     }
+    const dbMeta = getConnectionMetadata();
+    if (!dbMeta.configured || dbMeta.connectionMode === "invalid_url") {
+      console.warn(
+        "[Startup Notice] DATABASE_URL is missing or invalid in environment."
+      );
+    } else if (dbMeta.ipv4PoolerRecommended) {
+      console.warn(
+        "[Startup Warning] DATABASE_URL points to a direct Supabase host (*.supabase.co). On IPv4-only hosts like Render, switch to the Supabase Session Pooler (port 5432) or Transaction Pooler (port 6543, *.pooler.supabase.com) to avoid ENETUNREACH errors."
+      );
+    }
+    if (process.env.NODE_ENV === "production" && !(process.env.CODING_VERIFY_HMAC_SECRET || "").trim()) {
+      console.warn(
+        "[Startup Notice] CODING_VERIFY_HMAC_SECRET is not set; using derived service key for coding ownership verification."
+      );
+    }
   });
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[Shutdown] Received ${signal}; closing HTTP server and database pool...`);
+    const forceTimer = setTimeout(() => {
+      console.error("[Shutdown] Timed out waiting for connections; exiting.");
+      process.exit(1);
+    }, 1e4);
+    forceTimer.unref();
+    server.close(async () => {
+      await closeDb();
+      clearTimeout(forceTimer);
+      process.exit(0);
+    });
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 }
-startServer();
+process.on("unhandledRejection", (reason) => {
+  const code = getPgErrorCode(reason);
+  const label = code || (reason instanceof Error ? reason.name : "UnknownRejection");
+  console.error("[Process Warning] Unhandled promise rejection:", label);
+});
+startServer().catch((err) => {
+  const code = getPgErrorCode(err);
+  console.error("[Fatal Startup Error]", code || (err instanceof Error ? err.name : "StartupError"));
+  process.exit(1);
+});

@@ -178,8 +178,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       if (!res.ok) {
         throw new Error('Failed to load faculty accounts');
       }
-      const data = await res.json();
-      setFacultyList(data.faculty || []);
+      const data = await res.json().catch(() => ({}));
+      setFacultyList(data?.faculty || []);
     } catch (err) {
       setFacultyError(err instanceof Error ? err.message : 'Error loading faculty');
     } finally {
@@ -195,8 +195,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (res.ok) {
-        const data = await res.json();
-        setStudentsList(data.students || []);
+        const data = await res.json().catch(() => ({}));
+        setStudentsList(data?.students || []);
       }
     } catch {
       // ignore
@@ -262,9 +262,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         },
         body: JSON.stringify(createForm),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to create faculty account');
+        throw new Error(data?.error || 'Failed to create faculty account');
       }
 
       setFacultySuccess(`Faculty account created for ${createForm.name} (${createForm.memberId.toUpperCase()})`);
@@ -305,9 +305,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           experienceYears: parseInt(editForm.experienceYears, 10) || 0,
         }),
       });
-      const d = await res.json();
+      const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(d.error || 'Failed to update faculty');
+        throw new Error(d?.error || 'Failed to update faculty');
       }
       setFacultySuccess(`Updated details and bio for ${editForm.name}`);
       setEditFaculty(null);
@@ -345,9 +345,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           isActive: editStudentForm.isActive,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to update student profile');
+        throw new Error(data?.error || 'Failed to update student profile');
       }
       setStudentsList((prev) =>
         prev.map((s) => (s.id === editStudent.id ? data.student : s))
@@ -384,9 +384,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           bio: adminProfileForm.bio,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to update administrator profile');
+        throw new Error(data?.error || 'Failed to update administrator profile');
       }
       onProfileUpdated?.(data.profile, data.progress);
       setIsEditingAdminProfile(false);
@@ -430,8 +430,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           confirmPassword: facultyConfirmPassword,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to change password');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to change password');
 
       setFacultySuccess(`Password updated successfully for ${changePasswordTarget.name}`);
       setChangePasswordTarget(null);
@@ -451,8 +451,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         method: 'POST',
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to toggle status');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to toggle status');
       setFacultySuccess(data.message);
       loadFaculty();
     } catch (err) {
@@ -469,8 +469,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         method: 'DELETE',
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete faculty');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to delete faculty');
       setFacultySuccess(data.message);
       setDeleteConfirmTarget(null);
       await Promise.all([loadFaculty(), Promise.resolve(onFacultyChanged?.())]);
@@ -514,8 +514,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           confirmPassword: adminConfirmPassword,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update admin password');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to update admin password');
 
       setAdminPassSuccess('Administrator password has been successfully updated.');
       setAdminCurrentPassword('');

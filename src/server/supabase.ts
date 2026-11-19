@@ -55,6 +55,21 @@ function createEphemeralAuthClient(): SupabaseClient {
   });
 }
 
+function isTransientSupabaseError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as { name?: unknown; status?: unknown; message?: unknown; code?: unknown };
+  const name = typeof candidate.name === 'string' ? candidate.name : '';
+  const status = typeof candidate.status === 'number' ? candidate.status : undefined;
+  const msg = typeof candidate.message === 'string' ? candidate.message : '';
+  const code = typeof candidate.code === 'string' ? candidate.code : '';
+
+  if (name === 'AuthRetryableFetchError') return true;
+  if (status === 0 || (status !== undefined && status >= 500)) return true;
+  return /ENETUNREACH|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|network/i.test(
+    `${code} ${msg}`
+  );
+}
+
 export async function verifySupabaseJwt(accessToken: string): Promise<User | null> {
   if (!accessToken || !isSupabaseConfigured()) {
     return null;
@@ -62,11 +77,20 @@ export async function verifySupabaseJwt(accessToken: string): Promise<User | nul
   try {
     const admin = getSupabaseAdmin();
     const { data, error } = await admin.auth.getUser(accessToken);
-    if (error || !data?.user) {
+    if (error) {
+      if (isTransientSupabaseError(error)) {
+        console.warn('[Supabase Auth] Transient error during JWT verification.');
+      }
+      return null;
+    }
+    if (!data?.user) {
       return null;
     }
     return data.user;
-  } catch {
+  } catch (err) {
+    if (isTransientSupabaseError(err)) {
+      console.warn('[Supabase Auth] Network error during JWT verification.');
+    }
     return null;
   }
 }
@@ -74,19 +98,43 @@ export async function verifySupabaseJwt(accessToken: string): Promise<User | nul
 export async function signInSupabasePassword(
   email: string,
   password: string
-): Promise<{ accessToken: string; user: User } | { error: string }> {
-  const authClient = createEphemeralAuthClient();
-  const { data, error } = await authClient.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error || !data.session?.access_token || !data.user) {
-    return { error: error?.message || 'Invalid login credentials.' };
+): Promise<{ accessToken: string; user: User } | { error: string; unavailable?: boolean }> {
+  try {
+    const authClient = createEphemeralAuthClient();
+    const { data, error } = await authClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      if (isTransientSupabaseError(error)) {
+        console.warn('[Supabase Auth] Authentication service unreachable during password sign-in.');
+        return {
+          error: 'Authentication service is temporarily unreachable. Please try again shortly.',
+          unavailable: true,
+        };
+      }
+      return { error: error.message || 'Invalid login credentials.' };
+    }
+    if (!data.session?.access_token || !data.user) {
+      return { error: 'Invalid login credentials.' };
+    }
+    return {
+      accessToken: data.session.access_token,
+      user: data.user,
+    };
+  } catch (err) {
+    if (isTransientSupabaseError(err)) {
+      console.warn('[Supabase Auth] Network exception during password sign-in.');
+      return {
+        error: 'Authentication service is temporarily unreachable. Please try again shortly.',
+        unavailable: true,
+      };
+    }
+    return {
+      error: 'Authentication service failed while verifying credentials.',
+      unavailable: true,
+    };
   }
-  return {
-    accessToken: data.session.access_token,
-    user: data.user,
-  };
 }
 
 export async function createSupabaseAuthUser(params: {
@@ -96,25 +144,44 @@ export async function createSupabaseAuthUser(params: {
   name: string;
   memberId: string;
 }): Promise<{ user: User } | { error: string; status?: number }> {
-  const admin = getSupabaseAdmin();
-  const { data, error } = await admin.auth.admin.createUser({
-    email: params.email,
-    password: params.password,
-    email_confirm: true,
-    app_metadata: {
-      role: params.role,
-    },
-    user_metadata: {
-      name: params.name,
-      memberId: params.memberId,
-    },
-  });
-  if (error || !data?.user) {
-    const msg = error?.message || 'Unable to create authentication account.';
-    const status = /already|exists|registered/i.test(msg) ? 409 : 400;
-    return { error: msg, status };
+  try {
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin.auth.admin.createUser({
+      email: params.email,
+      password: params.password,
+      email_confirm: true,
+      app_metadata: {
+        role: params.role,
+      },
+      user_metadata: {
+        name: params.name,
+        memberId: params.memberId,
+      },
+    });
+    if (error || !data?.user) {
+      if (error && isTransientSupabaseError(error)) {
+        console.warn('[Supabase Auth] Transient failure while creating user account.');
+        return {
+          error: 'Authentication service is temporarily unreachable. Please try again shortly.',
+          status: 503,
+        };
+      }
+      const msg = error?.message || 'Unable to create authentication account.';
+      const status = /already|exists|registered/i.test(msg) ? 409 : 400;
+      return { error: msg, status };
+    }
+    return { user: data.user };
+  } catch (err) {
+    console.warn('[Supabase Auth] Failed to create user account.');
+    return {
+      error: isTransientSupabaseError(err)
+        ? 'Authentication service is temporarily unreachable. Please try again shortly.'
+        : err instanceof Error
+          ? err.message
+          : 'Unable to create authentication account.',
+      status: 503,
+    };
   }
-  return { user: data.user };
 }
 
 export async function updateSupabaseAuthUser(
@@ -128,34 +195,49 @@ export async function updateSupabaseAuthUser(
     banned?: boolean;
   }
 ): Promise<{ error?: string }> {
-  const admin = getSupabaseAdmin();
-  const payload: Parameters<typeof admin.auth.admin.updateUserById>[1] = {};
+  try {
+    const admin = getSupabaseAdmin();
+    const payload: Parameters<typeof admin.auth.admin.updateUserById>[1] = {};
 
-  if (updates.email !== undefined) {
-    payload.email = updates.email;
-    payload.email_confirm = true;
-  }
-  if (updates.password !== undefined) {
-    payload.password = updates.password;
-  }
-  if (updates.role !== undefined) {
-    payload.app_metadata = { role: updates.role };
-  }
-  if (updates.name !== undefined || updates.memberId !== undefined) {
-    payload.user_metadata = {
-      ...(updates.name !== undefined ? { name: updates.name } : {}),
-      ...(updates.memberId !== undefined ? { memberId: updates.memberId } : {}),
+    if (updates.email !== undefined) {
+      payload.email = updates.email;
+      payload.email_confirm = true;
+    }
+    if (updates.password !== undefined) {
+      payload.password = updates.password;
+    }
+    if (updates.role !== undefined) {
+      payload.app_metadata = { role: updates.role };
+    }
+    if (updates.name !== undefined || updates.memberId !== undefined) {
+      payload.user_metadata = {
+        ...(updates.name !== undefined ? { name: updates.name } : {}),
+        ...(updates.memberId !== undefined ? { memberId: updates.memberId } : {}),
+      };
+    }
+    if (updates.banned !== undefined) {
+      payload.ban_duration = updates.banned ? '876000h' : 'none';
+    }
+
+    const { error } = await admin.auth.admin.updateUserById(userId, payload);
+    if (error) {
+      if (isTransientSupabaseError(error)) {
+        return {
+          error: 'Authentication service is temporarily unreachable. Please try again shortly.',
+        };
+      }
+      return { error: error.message };
+    }
+    return {};
+  } catch (err) {
+    return {
+      error: isTransientSupabaseError(err)
+        ? 'Authentication service is temporarily unreachable. Please try again shortly.'
+        : err instanceof Error
+          ? err.message
+          : 'Failed to update authentication account.',
     };
   }
-  if (updates.banned !== undefined) {
-    payload.ban_duration = updates.banned ? '876000h' : 'none';
-  }
-
-  const { error } = await admin.auth.admin.updateUserById(userId, payload);
-  if (error) {
-    return { error: error.message };
-  }
-  return {};
 }
 
 export async function deleteSupabaseAuthUser(

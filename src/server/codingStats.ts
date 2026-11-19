@@ -263,6 +263,86 @@ function buildGithubApiHeaders(): Record<string, string> {
   return headers;
 }
 
+const RETRYABLE_NETWORK_CODES = new Set([
+  'ENETUNREACH',
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EAI_AGAIN',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_SOCKET',
+  'TimeoutError',
+  'AbortError',
+]);
+
+function extractNetworkErrorCode(err: unknown, depth = 0): string {
+  if (depth > 4 || !err || typeof err !== 'object') {
+    return 'NETWORK_ERROR';
+  }
+  const candidate = err as {
+    code?: unknown;
+    name?: unknown;
+    cause?: unknown;
+    errors?: unknown;
+  };
+  if (typeof candidate.code === 'string' && candidate.code.trim()) {
+    return candidate.code.trim();
+  }
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      const innerCode = extractNetworkErrorCode(inner, depth + 1);
+      if (innerCode !== 'NETWORK_ERROR') return innerCode;
+    }
+  }
+  if (candidate.cause) {
+    const causeCode = extractNetworkErrorCode(candidate.cause, depth + 1);
+    if (causeCode !== 'NETWORK_ERROR') return causeCode;
+  }
+  if (typeof candidate.name === 'string' && candidate.name.trim()) {
+    return candidate.name.trim();
+  }
+  return 'NETWORK_ERROR';
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: Omit<RequestInit, 'signal'>,
+  timeoutMs: number,
+  label: string
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (
+        attempt === 0 &&
+        (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504)
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      if (!res.ok && res.status !== 404) {
+        console.warn(`[CodingStats:${label}] Upstream HTTP ${res.status}`);
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      const code = extractNetworkErrorCode(err);
+      if (attempt === 0 && (RETRYABLE_NETWORK_CODES.has(code) || err instanceof TypeError)) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      console.warn(`[CodingStats:${label}] Network request failed (${code})`);
+      throw err;
+    }
+  }
+  console.warn(`[CodingStats:${label}] Network request failed (${extractNetworkErrorCode(lastError)})`);
+  throw lastError;
+}
+
 export async function fetchGithubRepoCount(
   username: string
 ): Promise<ScalarMetricFetchResult> {
@@ -274,10 +354,14 @@ export async function fetchGithubRepoCount(
   if (cached) return cached;
 
   try {
-    const res = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-      headers: buildGithubApiHeaders(),
-      signal: AbortSignal.timeout(4000),
-    });
+    const res = await fetchWithRetry(
+      `https://api.github.com/users/${encodeURIComponent(username)}`,
+      {
+        headers: buildGithubApiHeaders(),
+      },
+      4500,
+      'github_stats'
+    );
     if (res.status === 404) {
       return { status: 'not_found', count: 0 };
     }
@@ -320,16 +404,20 @@ export async function fetchLeetcodeCounts(username: string): Promise<LeetcodeFet
         }
       }
     `;
-    const res = await fetch('https://leetcode.com/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Referer: 'https://leetcode.com',
-        'User-Agent': 'CSE-Department-Portal',
+    const res = await fetchWithRetry(
+      'https://leetcode.com/graphql',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Referer: 'https://leetcode.com',
+          'User-Agent': 'CSE-Department-Portal',
+        },
+        body: JSON.stringify({ query, variables: { username } }),
       },
-      body: JSON.stringify({ query, variables: { username } }),
-      signal: AbortSignal.timeout(4000),
-    });
+      4500,
+      'leetcode_stats'
+    );
     if (res.status === 404) {
       return { status: 'not_found', total: 0, easy: 0, medium: 0, hard: 0 };
     }
@@ -379,15 +467,16 @@ export async function fetchHackerrankFiveStars(
   if (cached) return cached;
 
   try {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://www.hackerrank.com/rest/hackers/${encodeURIComponent(username)}/badges`,
       {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'CSE-Department-Portal',
         },
-        signal: AbortSignal.timeout(4000),
-      }
+      },
+      4500,
+      'hackerrank_stats'
     );
     if (res.status === 404) {
       return { status: 'not_found', count: 0 };
@@ -425,10 +514,14 @@ export async function fetchCodingProfileBio(
 
   try {
     if (platform === 'github') {
-      const res = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-        headers: buildGithubApiHeaders(),
-        signal: AbortSignal.timeout(4500),
-      });
+      const res = await fetchWithRetry(
+        `https://api.github.com/users/${encodeURIComponent(username)}`,
+        {
+          headers: buildGithubApiHeaders(),
+        },
+        4500,
+        'github_bio'
+      );
       if (res.status === 404) {
         return { status: 'not_found', bioText: '' };
       }
@@ -457,16 +550,20 @@ export async function fetchCodingProfileBio(
           }
         }
       `;
-      const res = await fetch('https://leetcode.com/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Referer: 'https://leetcode.com',
-          'User-Agent': 'CSE-Department-Portal',
+      const res = await fetchWithRetry(
+        'https://leetcode.com/graphql',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Referer: 'https://leetcode.com',
+            'User-Agent': 'CSE-Department-Portal',
+          },
+          body: JSON.stringify({ query, variables: { username } }),
         },
-        body: JSON.stringify({ query, variables: { username } }),
-        signal: AbortSignal.timeout(4500),
-      });
+        4500,
+        'leetcode_bio'
+      );
       if (res.status === 404) {
         return { status: 'not_found', bioText: '' };
       }
@@ -503,15 +600,16 @@ export async function fetchCodingProfileBio(
     }
 
     // HackerRank public profile endpoint (no official consumer OAuth; falls back to staff verification if blocked/private)
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://www.hackerrank.com/rest/contests/master/hackers/${encodeURIComponent(username)}/profile`,
       {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'CSE-Department-Portal',
         },
-        signal: AbortSignal.timeout(4500),
-      }
+      },
+      4500,
+      'hackerrank_bio'
     );
     if (res.status === 404) {
       return { status: 'not_found', bioText: '' };

@@ -16,6 +16,7 @@ export interface DatabaseConnectionMetadata {
   port: string | null;
   prepareDisabled: boolean;
   sslMode: 'require' | 'verify-full' | 'disabled';
+  ipv4PoolerRecommended?: boolean;
 }
 
 export interface DatabaseReadinessStatus extends DatabaseConnectionMetadata {
@@ -87,6 +88,7 @@ function resolveDatabaseConfig(rawUrl: string | undefined): ResolvedConfig | nul
       port,
       prepareDisabled: !prepare,
       sslMode,
+      ipv4PoolerRecommended: connectionMode === 'direct',
     },
   };
 }
@@ -151,6 +153,40 @@ export function getConnectionMetadata(): DatabaseConnectionMetadata {
   );
 }
 
+function extractDatabaseErrorCode(err: unknown, depth = 0): string | undefined {
+  if (depth > 5 || !err || typeof err !== 'object') {
+    return undefined;
+  }
+  const candidate = err as {
+    code?: unknown;
+    name?: unknown;
+    cause?: unknown;
+    errors?: unknown;
+  };
+  if (typeof candidate.code === 'string' && candidate.code.trim()) {
+    return candidate.code.trim();
+  }
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      const innerCode = extractDatabaseErrorCode(inner, depth + 1);
+      if (innerCode) return innerCode;
+    }
+  }
+  if (candidate.cause) {
+    const causeCode = extractDatabaseErrorCode(candidate.cause, depth + 1);
+    if (causeCode) return causeCode;
+  }
+  if (
+    typeof candidate.name === 'string' &&
+    candidate.name.trim() &&
+    candidate.name !== 'Error' &&
+    candidate.name !== 'AggregateError'
+  ) {
+    return candidate.name.trim();
+  }
+  return undefined;
+}
+
 export async function checkDatabaseReadiness(): Promise<DatabaseReadinessStatus> {
   const ready = ensureInitialized();
   const metadata = getConnectionMetadata();
@@ -172,13 +208,22 @@ export async function checkDatabaseReadiness(): Promise<DatabaseReadinessStatus>
       latencyMs: Date.now() - startedAt,
     };
   } catch (err) {
-    const pgError = err as { code?: string; name?: string };
+    const errorCode = extractDatabaseErrorCode(err) || 'CONNECTION_FAILED';
     return {
       ...metadata,
       connected: false,
       latencyMs: Date.now() - startedAt,
-      errorCode: pgError?.code || pgError?.name || 'CONNECTION_FAILED',
+      errorCode,
     };
+  }
+}
+
+export async function closeDb(): Promise<void> {
+  if (cachedSql) {
+    const sqlClient = cachedSql;
+    cachedSql = null;
+    cachedDb = null;
+    await sqlClient.end({ timeout: 5 }).catch(() => undefined);
   }
 }
 
