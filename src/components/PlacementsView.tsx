@@ -301,9 +301,9 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Campus Placements
           </h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -316,7 +316,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
           <button
             type="button"
             onClick={() => (isFormOpen && !editingId ? setIsFormOpen(false) : openCreateForm())}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
             title="Add Placement Drive"
           >
             <Plus className="h-4 w-4 shrink-0" />
@@ -331,12 +331,12 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="placement-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form
               onSubmit={handleSaveDrive}
               className="space-y-5"
@@ -453,7 +453,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="rounded-lg border border-slate-200 p-3 space-y-2">
                 <label className="flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
                   <input
@@ -581,7 +581,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
         }}
         className="flex items-center gap-2"
       >
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
@@ -591,12 +591,12 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
               if (!e.target.value) setAppliedQuery('');
             }}
             placeholder="Search drives by company, role, or location..."
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 min-h-[40px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 py-2 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+          className="rounded-lg bg-slate-900 py-2 px-3.5 sm:px-4 min-h-[40px] text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
         >
           Search
         </button>
@@ -604,7 +604,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
 
       {/* Drives List */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 text-center">
           <p className="text-sm font-medium text-slate-700">
             No placement drives matched your search.
           </p>
@@ -630,24 +630,24 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
             return (
               <article
                 key={drive.id}
-                className="rounded-xl border border-slate-200 bg-white p-6 space-y-4"
+                className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="text-xs text-slate-500">
+                <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+                  <div className="space-y-1 min-w-0">
+                    <div className="text-xs text-slate-500 break-words">
                       <span className="font-semibold text-slate-800">{drive.companyName}</span>
                       <span aria-hidden="true"> · </span>
                       <span>{drive.location}</span>
                       <span aria-hidden="true"> · </span>
                       <span className="font-mono tabular-nums">Apply by {drive.deadline}</span>
                     </div>
-                    <h2 className="text-lg font-semibold text-slate-900">
+                    <h2 className="text-base sm:text-lg font-semibold text-slate-900 break-words">
                       {drive.roleTitle}
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold font-mono tabular-nums text-blue-700">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-base sm:text-lg font-bold font-mono tabular-nums text-blue-700">
                       {drive.packageCtc}
                     </span>
 
@@ -738,13 +738,13 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     {safeExternalHref(drive.applyLink) && (
                       <a
                         href={safeExternalHref(drive.applyLink)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs font-medium text-slate-700 hover:border-slate-400 whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 px-3 min-h-[36px] text-xs font-medium text-slate-700 hover:border-slate-400 whitespace-nowrap"
                       >
                         <span>Company Notice</span>
                         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -759,7 +759,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                             expandedApplicantsDriveId === drive.id ? null : drive.id
                           )
                         }
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 py-2 px-3.5 text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2 px-3.5 min-h-[36px] text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap"
                       >
                         <Users className="h-3.5 w-3.5 shrink-0" />
                         <span>
@@ -769,7 +769,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                         </span>
                       </button>
                     ) : hasApplied ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 py-2 px-3.5 text-xs font-semibold text-emerald-800 whitespace-nowrap">
+                      <span className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 py-2 px-3.5 min-h-[36px] text-xs font-semibold text-emerald-800 whitespace-nowrap">
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                         <span>Applied</span>
                       </span>
@@ -777,7 +777,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleApply(drive.id)}
-                        className="rounded-lg bg-blue-600 py-2 px-4 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
+                        className="rounded-lg bg-blue-600 py-2 px-4 min-h-[36px] text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
                       >
                         Apply for Drive
                       </button>
@@ -785,7 +785,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                   </div>
                 </div>
 
-                {/* Staff Applicant Inspection Table */}
+                {/* Staff Applicant Inspection Table + Mobile Cards */}
                 {isStaff && expandedApplicantsDriveId === drive.id && (
                   <div className="pt-3 border-t border-slate-200">
                     {drive.applicants.length === 0 ? (
@@ -793,65 +793,122 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                         No students have submitted applications for this drive yet.
                       </p>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-slate-200 text-slate-500">
-                              <th className="py-2 pr-4 font-medium">Student ID</th>
-                              <th className="py-2 pr-4 font-medium">Name</th>
-                              <th className="py-2 pr-4 font-medium text-right">CGPA</th>
-                              <th className="py-2 pr-4 font-medium text-right">LeetCode</th>
-                              <th className="py-2 pr-4 font-medium text-right">HackerRank 5★</th>
-                              <th className="py-2 pl-4 font-medium text-right">GitHub Repos</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {drive.applicants.map((app) => (
-                              <tr key={app.studentId} className="hover:bg-slate-50">
-                                <td className="py-2.5 pr-4 font-mono">
+                      <>
+                        {/* Mobile stacked applicant cards */}
+                        <div className="sm:hidden space-y-2.5">
+                          {drive.applicants.map((app) => (
+                            <div
+                              key={app.studentId}
+                              className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs space-y-2"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
                                   <button
                                     type="button"
                                     onClick={() => onInspectStudentId(app.studentMemberId)}
-                                    className="text-blue-700 hover:underline"
+                                    className="font-mono font-semibold text-blue-700 hover:underline"
                                   >
                                     {app.studentMemberId}
                                   </button>
-                                </td>
-                                <td className="py-2.5 pr-4 font-medium text-slate-800">
-                                  {app.studentName}
-                                </td>
-                                <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
-                                  {app.cgpa.toFixed(2)}
-                                </td>
-                                <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
-                                  {app.leetcodeSolved}
-                                  {!app.leetcodeVerified && (
-                                    <span className="ml-1 font-sans text-[10px] text-slate-400">
-                                      (Unverified)
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
-                                  {app.hackerrankFiveStars}
-                                  {!app.hackerrankVerified && (
-                                    <span className="ml-1 font-sans text-[10px] text-slate-400">
-                                      (Unverified)
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2.5 pl-4 text-right font-mono tabular-nums">
-                                  {app.githubProjects}
-                                  {!app.githubVerified && (
-                                    <span className="ml-1 font-sans text-[10px] text-slate-400">
-                                      (Unverified)
-                                    </span>
-                                  )}
-                                </td>
+                                  <div className="font-semibold text-slate-900 truncate">
+                                    {app.studentName}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-[10px] uppercase text-slate-400">CGPA</div>
+                                  <div className="font-mono font-bold text-slate-900 tabular-nums">
+                                    {app.cgpa.toFixed(2)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/70 text-[11px]">
+                                <div>
+                                  <div className="text-slate-400">LeetCode</div>
+                                  <div className="font-mono font-semibold text-slate-800">
+                                    {app.leetcodeSolved}
+                                    {!app.leetcodeVerified && <span className="text-slate-400"> *</span>}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-400">HR 5★</div>
+                                  <div className="font-mono font-semibold text-slate-800">
+                                    {app.hackerrankFiveStars}
+                                    {!app.hackerrankVerified && <span className="text-slate-400"> *</span>}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-400">GitHub</div>
+                                  <div className="font-mono font-semibold text-slate-800">
+                                    {app.githubProjects}
+                                    {!app.githubVerified && <span className="text-slate-400"> *</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Tablet / Desktop table */}
+                        <div className="hidden sm:block overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-200 text-slate-500">
+                                <th className="py-2 pr-4 font-medium">Student ID</th>
+                                <th className="py-2 pr-4 font-medium">Name</th>
+                                <th className="py-2 pr-4 font-medium text-right">CGPA</th>
+                                <th className="py-2 pr-4 font-medium text-right">LeetCode</th>
+                                <th className="py-2 pr-4 font-medium text-right">HackerRank 5★</th>
+                                <th className="py-2 pl-4 font-medium text-right">GitHub Repos</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {drive.applicants.map((app) => (
+                                <tr key={app.studentId} className="hover:bg-slate-50">
+                                  <td className="py-2.5 pr-4 font-mono">
+                                    <button
+                                      type="button"
+                                      onClick={() => onInspectStudentId(app.studentMemberId)}
+                                      className="text-blue-700 hover:underline"
+                                    >
+                                      {app.studentMemberId}
+                                    </button>
+                                  </td>
+                                  <td className="py-2.5 pr-4 font-medium text-slate-800">
+                                    {app.studentName}
+                                  </td>
+                                  <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
+                                    {app.cgpa.toFixed(2)}
+                                  </td>
+                                  <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
+                                    {app.leetcodeSolved}
+                                    {!app.leetcodeVerified && (
+                                      <span className="ml-1 font-sans text-[10px] text-slate-400">
+                                        (Unverified)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
+                                    {app.hackerrankFiveStars}
+                                    {!app.hackerrankVerified && (
+                                      <span className="ml-1 font-sans text-[10px] text-slate-400">
+                                        (Unverified)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 pl-4 text-right font-mono tabular-nums">
+                                    {app.githubProjects}
+                                    {!app.githubVerified && (
+                                      <span className="ml-1 font-sans text-[10px] text-slate-400">
+                                        (Unverified)
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                   </div>
                 )}

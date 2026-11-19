@@ -554,81 +554,81 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 border border-cyan-500/30 p-6 shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 border border-cyan-500/30 p-4 sm:p-6 shadow-2xl">
         <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-lg">
-              <ShieldCheck className="w-8 h-8" />
+          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+            <div className="w-11 h-11 sm:w-14 sm:h-14 shrink-0 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-lg">
+              <ShieldCheck className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
-            <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mb-1">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mb-1">
                 PRAGATI ENGINEERING COLLEGE · SURAMPALEM
               </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+              <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2 break-words">
                 Central Administrator Portal
               </h1>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 break-words">
                 Logged in as <span className="text-cyan-300 font-semibold">{currentUser.name}</span> ({currentUser.memberId}) · Complete authority over faculty accounts & security
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-stretch md:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto">
             <button
               onClick={() => {
                 setCreateFacultyOpen(true);
                 setCreateError(null);
               }}
-              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-sm font-semibold shadow-lg shadow-cyan-500/20 transition-all active:scale-95"
+              className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[40px] rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-sm font-semibold shadow-lg shadow-cyan-500/20 transition-all active:scale-95"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4 h-4 shrink-0" />
               <span>Create Faculty</span>
             </button>
             <button
               onClick={onLogout}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 hover:text-rose-400 border border-slate-700/80 text-slate-300 text-sm font-medium transition-all"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] rounded-xl bg-slate-800/80 hover:bg-rose-500/20 hover:text-rose-400 border border-slate-700/80 text-slate-300 text-sm font-medium transition-all"
               title="Logout from Admin Portal"
             >
-              <Power className="w-4 h-4" />
+              <Power className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto">
+        <div className="mt-5 sm:mt-6 pt-4 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setActiveTab('faculty')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-all ${
               activeTab === 'faculty'
                 ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4 shrink-0" />
             <span>Manage Faculty ({facultyList.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('students')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-all ${
               activeTab === 'students'
                 ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
-            <GraduationCap className="w-4 h-4" />
+            <GraduationCap className="w-4 h-4 shrink-0" />
             <span>Registered Students ({studentsList.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-all ${
               activeTab === 'settings'
                 ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
-            <Lock className="w-4 h-4" />
+            <Lock className="w-4 h-4 shrink-0" />
             <span>Settings / Change Password</span>
           </button>
         </div>
@@ -689,12 +689,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
           {/* Faculty Table / Cards */}
           {loadingFaculty ? (
-            <div className="p-12 text-center text-slate-400">
+            <div className="p-10 sm:p-12 text-center text-slate-400">
               <RefreshCw className="w-8 h-8 animate-spin mx-auto text-cyan-400 mb-2" />
               <p className="text-sm">Loading faculty members...</p>
             </div>
           ) : filteredFaculty.length === 0 ? (
-            <div className="p-12 text-center rounded-2xl bg-slate-900/60 border border-slate-800">
+            <div className="p-10 sm:p-12 text-center rounded-2xl bg-slate-900/60 border border-slate-800">
               <Users className="w-10 h-10 text-slate-600 mx-auto mb-2" />
               <p className="text-white font-medium">No faculty members found</p>
               <p className="text-xs text-slate-400 mt-1">
@@ -702,71 +702,73 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
               {filteredFaculty.map((f) => (
                 <div
                   key={f.id}
-                  className={`p-5 rounded-2xl bg-slate-900/90 border transition-all hover:border-cyan-500/40 ${
+                  className={`p-4 sm:p-5 rounded-2xl bg-slate-900/90 border transition-all hover:border-cyan-500/40 flex flex-col justify-between min-w-0 ${
                     f.isActive === false
                       ? 'border-rose-900/50 opacity-75'
                       : 'border-slate-800/90 hover:shadow-xl hover:shadow-cyan-950/30'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-700 flex items-center justify-center text-white font-bold text-base shadow">
-                        {f.name.charAt(0)}
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-white leading-tight">{f.name}</h3>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="font-mono text-xs px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 font-semibold">
-                            {f.memberId}
-                          </span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                              f.isActive !== false
-                                ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
-                                : 'bg-rose-950 text-rose-400 border border-rose-800/60'
-                            }`}
-                          >
-                            {f.isActive !== false ? 'Active' : 'Deactivated'}
-                          </span>
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 shrink-0 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-700 flex items-center justify-center text-white font-bold text-base shadow">
+                          {f.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-base font-bold text-white leading-tight truncate">{f.name}</h3>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 font-semibold">
+                              {f.memberId}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                                f.isActive !== false
+                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                                  : 'bg-rose-950 text-rose-400 border border-rose-800/60'
+                              }`}
+                            >
+                              {f.isActive !== false ? 'Active' : 'Deactivated'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-4 space-y-1.5 text-xs text-slate-300">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Briefcase className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                      <span className="truncate">{f.batchOrDesignation || 'Faculty'}</span>
-                    </div>
-                    {f.department && (
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <Building className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                        <span className="truncate">{f.department}</span>
+                    <div className="mt-4 space-y-1.5 text-xs text-slate-300 min-w-0">
+                      <div className="flex items-center gap-2 text-slate-400 min-w-0">
+                        <Briefcase className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        <span className="truncate">{f.batchOrDesignation || 'Faculty'}</span>
                       </div>
-                    )}
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <Mail className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                      <span className="truncate">{f.email}</span>
-                    </div>
-                    {f.phone && (
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                        <span>{f.phone}</span>
+                      {f.department && (
+                        <div className="flex items-center gap-2 text-slate-400 min-w-0">
+                          <Building className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span className="truncate">{f.department}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-slate-400 min-w-0">
+                        <Mail className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        <span className="truncate">{f.email}</span>
                       </div>
-                    )}
-                    {f.bio && (
-                      <p className="pt-1.5 text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
-                        {f.bio}
-                      </p>
-                    )}
+                      {f.phone && (
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                          <span className="truncate">{f.phone}</span>
+                        </div>
+                      )}
+                      {f.bio && (
+                        <p className="pt-1.5 text-[11px] text-slate-400 line-clamp-2 leading-relaxed break-words">
+                          {f.bio}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-5 pt-3.5 border-t border-slate-800/80 flex items-center justify-between gap-1">
+                  <div className="mt-5 pt-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-1.5">
                     <button
                       onClick={() => {
                         setEditError(null);
@@ -787,7 +789,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           bio: f.bio || '',
                         });
                       }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[34px] rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
                       title="Edit Faculty Details"
                     >
                       <Edit2 className="w-3 h-3 text-cyan-400" />
@@ -801,7 +803,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         setFacultyConfirmPassword('');
                         setChangePassError(null);
                       }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[34px] rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
                       title="Reset Faculty Password"
                     >
                       <KeyRound className="w-3 h-3 text-amber-400" />
@@ -810,7 +812,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                     <button
                       onClick={() => handleToggleStatus(f)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[34px] rounded-lg text-xs font-medium transition-colors ${
                         f.isActive !== false
                           ? 'bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-800/50'
                           : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/50'
@@ -823,7 +825,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                     <button
                       onClick={() => setDeleteConfirmTarget(f)}
-                      className="inline-flex items-center justify-center p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 transition-colors"
+                      className="inline-flex items-center justify-center p-2 min-h-[34px] min-w-[34px] rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 transition-colors"
                       title="Delete Faculty Account"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -859,7 +861,82 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl">
+          {/* Mobile Stacked Student Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredStudents.length === 0 ? (
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-8 text-center text-xs text-slate-500">
+                No students found matching your criteria.
+              </div>
+            ) : (
+              filteredStudents.map((s) => (
+                <div
+                  key={s.id}
+                  className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 space-y-3 shadow-lg"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-mono text-xs font-bold text-cyan-300 block">
+                        {s.memberId}
+                      </span>
+                      <div className="font-semibold text-white text-sm truncate mt-0.5">
+                        {s.name}
+                      </div>
+                      <div className="text-xs text-slate-400 break-all mt-0.5">{s.email}</div>
+                    </div>
+                    <span
+                      className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                        s.isActive !== false
+                          ? 'bg-emerald-950 text-emerald-400 border-emerald-800/60'
+                          : 'bg-rose-950 text-rose-400 border-rose-800/60'
+                      }`}
+                    >
+                      {s.isActive !== false ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  {s.bio && (
+                    <p className="text-[11px] text-slate-400 line-clamp-2 break-words">{s.bio}</p>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                    <div className="text-slate-300">
+                      <span>{s.department || 'CSE'}</span>
+                      <span className="mx-1.5 text-slate-600">·</span>
+                      <span>
+                        {s.year ? `${s.year} · Sec ${s.section || 'A'}` : s.batchOrDesignation}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditStudentError(null);
+                        setEditStudent(s);
+                        setEditStudentForm({
+                          name: s.name,
+                          email: s.email,
+                          department: s.department || DEPARTMENTS[0],
+                          year: s.year || YEARS[0],
+                          section: s.section || SECTIONS[0],
+                          phone: s.phone || '',
+                          cgpa: s.cgpa ? String(s.cgpa) : '0',
+                          skills: s.skills || '',
+                          bio: s.bio || '',
+                          isActive: s.isActive !== false,
+                        });
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3 text-cyan-400" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl">
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-950/90 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
                 <tr>
@@ -946,11 +1023,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {activeTab === 'settings' && (
         <div className="space-y-6">
           {/* Administrator Profile & Personal Bio Card (View-first; click Edit option to modify) */}
-          <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
+          <div className="p-4 sm:p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <UserCog className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <UserCog className="w-5 h-5 text-cyan-400 shrink-0" />
                   Administrator Profile & Personal Bio
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
@@ -968,7 +1045,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     setAdminProfileSuccess(null);
                     setIsEditingAdminProfile(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-colors"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   <span>Edit Admin Profile & Bio</span>
@@ -989,7 +1066,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     setAdminProfileError(null);
                     setIsEditingAdminProfile(false);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span>Cancel</span>
@@ -1014,35 +1091,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             {!isEditingAdminProfile ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 min-w-0">
                     <span className="text-slate-400 block">Full Name</span>
-                    <span className="mt-1 block text-sm font-semibold text-white">{currentUser.name}</span>
+                    <span className="mt-1 block text-sm font-semibold text-white break-words">{currentUser.name}</span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 min-w-0">
                     <span className="text-slate-400 block">Administrator Title</span>
-                    <span className="mt-1 block text-sm font-medium text-cyan-300">
+                    <span className="mt-1 block text-sm font-medium text-cyan-300 break-words">
                       {currentUser.batchOrDesignation || 'System Administrator'}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 min-w-0">
                     <span className="text-slate-400 block">Login Email</span>
-                    <span className="mt-1 block text-sm text-slate-200 truncate">{currentUser.email}</span>
+                    <span className="mt-1 block text-sm text-slate-200 break-all">{currentUser.email}</span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 min-w-0">
                     <span className="text-slate-400 block">Department</span>
-                    <span className="mt-1 block text-sm text-slate-200">
+                    <span className="mt-1 block text-sm text-slate-200 break-words">
                       {currentUser.department || DEPARTMENTS[0]}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 min-w-0">
                     <span className="text-slate-400 block">Phone / Office Ext</span>
-                    <span className="mt-1 block text-sm font-mono text-slate-200">
+                    <span className="mt-1 block text-sm font-mono text-slate-200 break-words">
                       {currentUser.phone || 'Not set'}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 min-w-0">
                     <span className="text-slate-400 block">Skills & Responsibilities</span>
-                    <span className="mt-1 block text-sm text-slate-200">
+                    <span className="mt-1 block text-sm text-slate-200 break-words">
                       {currentUser.skills || 'Not specified'}
                     </span>
                   </div>
@@ -1050,7 +1127,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                 <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
                   <span className="text-xs font-semibold text-cyan-300 block mb-1">Personal Bio</span>
-                  <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                  <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line break-words">
                     {currentUser.bio || 'No personal bio added yet. Click "Edit Admin Profile & Bio" above to add one.'}
                   </p>
                 </div>
@@ -1177,7 +1254,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   />
                 </div>
 
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1193,14 +1270,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       setAdminProfileError(null);
                       setIsEditingAdminProfile(false);
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                    className="px-4 py-2.5 min-h-[40px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={adminProfileSaving}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+                    className="px-5 py-2.5 min-h-[40px] rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 disabled:opacity-50"
                   >
                     {adminProfileSaving ? 'Saving Profile...' : 'Save Admin Profile & Bio'}
                   </button>
@@ -1209,9 +1286,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {/* Change Password Card */}
-          <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
+          <div className="p-4 sm:p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Lock className="w-5 h-5 text-cyan-400" />
@@ -1309,9 +1386,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
 
           {/* Admin Identity & Safeguards Info Card */}
-          <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+          <div className="p-4 sm:p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+            <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
               Security Architecture & Rules
             </h2>
             <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
@@ -1335,15 +1412,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* MODAL 1: CREATE FACULTY ACCOUNT */}
       {createFacultyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 border border-cyan-500/40 p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-slate-900 border border-cyan-500/40 p-4 sm:p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
                   <UserPlus className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Create Faculty Account</h3>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-white">Create Faculty Account</h3>
                   <p className="text-xs text-slate-400">
                     Administrator faculty provisioning with compulsory password
                   </p>
@@ -1351,7 +1428,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
               <button
                 onClick={() => setCreateFacultyOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1515,18 +1592,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setCreateFacultyOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+                  className="px-4 py-2 min-h-[38px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createSubmitting}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 disabled:opacity-50"
+                  className="px-5 py-2 min-h-[38px] rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 disabled:opacity-50"
                 >
                   {createSubmitting ? 'Creating Faculty...' : 'Create Faculty Account'}
                 </button>
@@ -1538,14 +1615,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* MODAL 2: EDIT FACULTY DETAILS */}
       {editFaculty && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-cyan-400" />
-                Edit Details: {editFaculty.name} ({editFaculty.memberId})
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 p-4 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-800">
+              <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 min-w-0 break-words">
+                <Edit2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Edit Details: {editFaculty.name} ({editFaculty.memberId})</span>
               </h3>
-              <button onClick={() => setEditFaculty(null)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setEditFaculty(null)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1674,18 +1754,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditFaculty(null)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                  className="px-3.5 py-2 min-h-[36px] rounded-lg bg-slate-800 text-slate-300 text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={editSubmitting}
-                  className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
+                  className="px-4 py-2 min-h-[36px] rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
                 >
                   {editSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -1697,14 +1777,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* MODAL 5: EDIT STUDENT DETAILS */}
       {editStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-cyan-400" />
-                Edit Student: {editStudent.name} ({editStudent.memberId})
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 p-4 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-800">
+              <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 min-w-0 break-words">
+                <Edit2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Edit Student: {editStudent.name} ({editStudent.memberId})</span>
               </h3>
-              <button onClick={() => setEditStudent(null)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setEditStudent(null)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1877,18 +1960,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditStudent(null)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                  className="px-3.5 py-2 min-h-[36px] rounded-lg bg-slate-800 text-slate-300 text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={editStudentSubmitting}
-                  className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
+                  className="px-4 py-2 min-h-[36px] rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
                 >
                   {editStudentSubmitting ? 'Saving...' : 'Save Student Changes'}
                 </button>
@@ -1900,16 +1983,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* MODAL 3: CHANGE FACULTY PASSWORD */}
       {changePasswordTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl bg-slate-900 border border-amber-500/40 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-amber-400" />
-                Change Password: {changePasswordTarget.name}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-slate-900 border border-amber-500/40 p-4 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-800">
+              <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 min-w-0 break-words">
+                <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Change Password: {changePasswordTarget.name}</span>
               </h3>
               <button
                 onClick={() => setChangePasswordTarget(null)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1960,18 +2043,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setChangePasswordTarget(null)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                  className="px-3.5 py-2 min-h-[36px] rounded-lg bg-slate-800 text-slate-300 text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={changePassSubmitting}
-                  className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20"
+                  className="px-4 py-2 min-h-[36px] rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20"
                 >
                   {changePassSubmitting ? 'Updating...' : 'Update Password'}
                 </button>
@@ -1983,14 +2066,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* MODAL 4: DELETE CONFIRMATION */}
       {deleteConfirmTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-sm rounded-2xl bg-slate-900 border border-rose-500/40 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-2xl bg-slate-900 border border-rose-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>
             <div className="text-center">
               <h3 className="text-base font-bold text-white">Delete Faculty Account?</h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1 break-words">
                 Are you sure you want to permanently delete the account for{' '}
                 <strong className="text-white">{deleteConfirmTarget.name}</strong> ({deleteConfirmTarget.memberId})? This action cannot be undone.
               </p>
@@ -1999,14 +2082,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <button
                 onClick={() => setDeleteConfirmTarget(null)}
                 disabled={deleteSubmitting}
-                className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold"
+                className="flex-1 py-2.5 min-h-[40px] rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteFaculty}
                 disabled={deleteSubmitting}
-                className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-rose-600/30"
+                className="flex-1 py-2.5 min-h-[40px] rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-rose-600/30"
               >
                 {deleteSubmitting ? 'Deleting...' : 'Delete Account'}
               </button>

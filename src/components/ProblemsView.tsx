@@ -204,9 +204,9 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Problem Statements
           </h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -217,7 +217,7 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
         <button
           type="button"
           onClick={handlePlusClick}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
           title="Post Problem Statement"
         >
           <Plus className="h-4 w-4 shrink-0" />
@@ -231,12 +231,12 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="problem-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form
               onSubmit={handleSubmit}
               className="space-y-4"
@@ -375,15 +375,15 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
   )}
 
       {/* Search & Status Filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             setAppliedQuery(searchInput);
           }}
-          className="flex flex-1 min-w-[260px] items-center gap-2"
+          className="flex w-full sm:flex-1 items-center gap-2 min-w-0"
         >
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
@@ -392,25 +392,25 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                 setSearchInput(e.target.value);
                 if (!e.target.value) setAppliedQuery('');
               }}
-              placeholder="Search problem statements by app name, issue, or author..."
-              className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+              placeholder="Search problem statements by app, issue, or author..."
+              className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 min-h-[40px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
             />
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-slate-900 py-2 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+            className="rounded-lg bg-slate-900 py-2 px-3.5 sm:px-4 min-h-[40px] text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
           >
             Search
           </button>
         </form>
 
-        <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+        <div className="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 w-full sm:w-auto">
           {(['all', 'open', 'solved'] as const).map((status) => (
             <button
               key={status}
               type="button"
               onClick={() => setStatusFilter(status)}
-              className={`rounded-md py-1.5 px-3 text-xs font-medium capitalize transition-colors whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial rounded-md py-1.5 px-3 text-xs font-medium capitalize transition-colors whitespace-nowrap ${
                 statusFilter === status
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -424,7 +424,7 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
 
       {/* Problem Cards */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 text-center">
           <p className="text-sm font-medium text-slate-700">
             No problem statements found for the current filter.
           </p>
@@ -436,11 +436,11 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
             return (
               <article
                 key={item.id}
-                className="rounded-xl border border-slate-200 bg-white p-6 space-y-4"
+                className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="text-xs text-slate-500">
+                <div className="flex items-start justify-between gap-3 sm:gap-4">
+                  <div className="space-y-1 min-w-0">
+                    <div className="text-xs text-slate-500 break-words">
                       <span className="font-medium text-slate-700">{item.applicationName}</span>
                       <span aria-hidden="true"> · </span>
                       <span>{item.category}</span>
@@ -455,7 +455,7 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                         {item.status === 'solved' ? 'Status: Solved' : 'Status: Open'}
                       </span>
                     </div>
-                    <h2 className="text-lg font-semibold text-slate-900">{item.title}</h2>
+                    <h2 className="text-base sm:text-lg font-semibold text-slate-900 break-words">{item.title}</h2>
                   </div>
 
                   {canModifyEntry(item) && (
@@ -480,12 +480,12 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                   )}
                 </div>
 
-                <p className="text-sm text-slate-700 leading-relaxed">{item.description}</p>
+                <p className="text-sm text-slate-700 leading-relaxed break-words">{item.description}</p>
 
                 {/* Perspective Person Contact Info & Message Action */}
-                <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
-                  <div className="text-xs text-slate-600 space-y-0.5">
-                    <div>
+                <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                  <div className="text-xs text-slate-600 space-y-0.5 min-w-0">
+                    <div className="break-words">
                       <span>Perspective Contact: </span>
                       <span className="font-medium text-slate-900">{item.authorName}</span>
                       <span aria-hidden="true"> · </span>
@@ -497,7 +497,7 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                         {item.authorMemberId}
                       </button>
                     </div>
-                    <div className="text-slate-500">
+                    <div className="text-slate-500 break-all sm:break-words">
                       <span>{item.contactInfo}</span>
                       <span aria-hidden="true"> · </span>
                       <a
@@ -512,7 +512,7 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleToggleMessageThread(item.id)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white py-2 px-3.5 text-xs font-semibold text-slate-800 hover:border-blue-500 hover:text-blue-700 transition-colors whitespace-nowrap shrink-0"
+                    className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white py-2 px-3.5 min-h-[38px] text-xs font-semibold text-slate-800 hover:border-blue-500 hover:text-blue-700 transition-colors whitespace-nowrap shrink-0"
                   >
                     <MessageSquare className="h-3.5 w-3.5 shrink-0" />
                     <span>
@@ -538,10 +538,10 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                           {item.responses.map((resp) => (
                             <div
                               key={resp.id}
-                              className="rounded-lg bg-slate-50 px-4 py-3 text-xs space-y-1.5"
+                              className="rounded-lg bg-slate-50 px-3 sm:px-4 py-3 text-xs space-y-1.5"
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2 text-slate-500">
-                                <div>
+                                <div className="min-w-0 break-all sm:break-words">
                                   <span className="font-semibold text-slate-800">
                                     {resp.senderName}
                                   </span>
@@ -551,22 +551,22 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                                   <span>{resp.senderEmail}</span>
                                 </div>
                                 {resp.marksSolved && (
-                                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+                                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 shrink-0">
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     Submitted Solution
                                   </span>
                                 )}
                               </div>
-                              <p className="text-slate-700 leading-relaxed">{resp.message}</p>
+                              <p className="text-slate-700 leading-relaxed break-words">{resp.message}</p>
                               {safeExternalHref(resp.solutionLink) && (
                                 <a
                                   href={safeExternalHref(resp.solutionLink)}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline"
+                                  className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline break-all"
                                 >
                                   <span>View Patch / Solution Link</span>
-                                  <ExternalLink className="h-3 w-3" />
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
                                 </a>
                               )}
                             </div>
@@ -596,30 +596,30 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                         }
                         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
                       />
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-4 flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
                           <input
                             type="text"
                             value={solutionLink}
                             onChange={(e) => setSolutionLink(e.target.value)}
                             placeholder="Optional PR / Repo / Fix URL"
-                            className="min-w-[210px] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+                            className="w-full sm:flex-1 rounded-lg border border-slate-300 px-3 py-2 sm:py-1.5 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
                           />
                           <label className="inline-flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
                             <input
                               type="checkbox"
                               checked={marksSolved}
                               onChange={(e) => setMarksSolved(e.target.checked)}
-                              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+                              className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
                             />
-                            <span>Mark as solved (counts toward my Profile Progress)</span>
+                            <span>Mark as solved (counts toward Profile Progress)</span>
                           </label>
                         </div>
 
                         <button
                           type="submit"
                           disabled={replySubmitting}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 py-2 px-4 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap shrink-0"
+                          className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-blue-600 py-2 px-4 min-h-[38px] text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap shrink-0"
                         >
                           <Send className="h-3.5 w-3.5 shrink-0" />
                           <span>{replySubmitting ? 'Sending...' : 'Send to Author'}</span>

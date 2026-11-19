@@ -227,29 +227,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* Logged In Member Welcome Banner */}
       {currentUser && (
-        <div className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-4 sm:p-5 text-white flex flex-wrap items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center font-mono font-bold text-sm">
+        <div className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-4 sm:p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center font-mono font-bold text-sm shrink-0">
               {currentUser.name.slice(0, 2).toUpperCase()}
             </div>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-blue-200">
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-blue-200">
                 Department Member Dashboard
               </div>
-              <div className="text-base sm:text-lg font-bold">
+              <div className="text-base sm:text-lg font-bold truncate">
                 Welcome back, {currentUser.name}!
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs bg-white/15 px-3 py-1 rounded-full font-mono font-medium">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="text-[11px] sm:text-xs bg-white/15 px-2.5 sm:px-3 py-1 rounded-full font-mono font-medium">
               {currentUser.memberId} · {currentUser.role.toUpperCase()}
             </span>
-            <span className="text-xs bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 px-3 py-1 rounded-full font-semibold">
+            <span className="text-[11px] sm:text-xs bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 px-2.5 sm:px-3 py-1 rounded-full font-semibold">
               All Modules Unlocked
             </span>
           </div>
@@ -257,22 +257,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {/* Hero Banner: Designed to be attractive for both Outsiders and Students */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-6 sm:p-10 text-white shadow-xl border border-slate-800">
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 sm:p-8 lg:p-10 text-white shadow-xl border border-slate-800">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-blue-500/15 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 right-1/3 w-72 h-72 rounded-full bg-indigo-500/15 blur-2xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
-          <div className="space-y-4 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-bold tracking-wider uppercase text-blue-300">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-500/20 text-blue-200 border border-blue-400/30">
-                <Sparkles className="w-3.5 h-3.5 text-blue-300" />
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 lg:gap-8">
+          <div className="space-y-4 max-w-2xl min-w-0 w-full">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs font-bold tracking-wider uppercase text-blue-300">
+              <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                <Sparkles className="w-3.5 h-3.5 text-blue-300 shrink-0" />
                 <span>Premier CSE Department</span>
               </span>
-              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span aria-hidden="true" className="text-slate-600 hidden xs:inline">·</span>
               <span className="text-slate-300">NBA Tier-1 Accredited · NAAC A++</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
+            <h1 className="text-2xl sm:text-4xl lg:text-[2.75rem] font-black tracking-tight text-white leading-[1.12]">
               Department of Computer Science & Engineering
             </h1>
 
@@ -283,22 +283,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
 
             {/* Quick action buttons */}
-            <div className="pt-2 flex flex-wrap items-center gap-3">
+            <div className="pt-1 sm:pt-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3">
               {isOutsider ? (
                 <>
                   <button
                     type="button"
                     onClick={() => onNavigate('interview-experience')}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-3 px-5 text-xs font-bold text-white transition-all shadow-md active:scale-98"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 sm:py-3 px-4 sm:px-5 text-xs font-bold text-white transition-all shadow-md active:scale-98 min-h-[42px]"
                   >
-                    <Lock className="w-3.5 h-3.5 text-blue-200" />
+                    <Lock className="w-3.5 h-3.5 text-blue-200 shrink-0" />
                     <span>Login to Unlock Full Portal</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                   </button>
 
                   <a
                     href="#dept-spotlights-heading"
-                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 py-3 px-5 text-xs font-semibold text-white border border-white/20 transition-colors"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 py-2.5 sm:py-3 px-4 sm:px-5 text-xs font-semibold text-white border border-white/20 transition-colors min-h-[42px]"
                   >
                     <span>View Top Placement Highlights</span>
                   </a>
@@ -308,28 +308,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigate('interview-experience')}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 px-4 text-xs font-bold text-white transition-all shadow-sm"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 px-4 text-xs font-bold text-white transition-all shadow-sm min-h-[40px]"
                   >
-                    <FileText className="w-3.5 h-3.5" />
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
                     <span>Interview Question Vault</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                   </button>
 
                   <button
                     type="button"
                     onClick={() => onNavigate('projects')}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 py-2.5 px-4 text-xs font-semibold text-white border border-white/15 transition-colors"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 py-2.5 px-4 text-xs font-semibold text-white border border-white/15 transition-colors min-h-[40px]"
                   >
-                    <FolderGit2 className="w-3.5 h-3.5 text-blue-300" />
+                    <FolderGit2 className="w-3.5 h-3.5 text-blue-300 shrink-0" />
                     <span>Explore Our Projects</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => onNavigate('hackathons')}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 py-2.5 px-4 text-xs font-semibold text-white border border-white/15 transition-colors"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 py-2.5 px-4 text-xs font-semibold text-white border border-white/15 transition-colors min-h-[40px]"
                   >
-                    <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                    <Trophy className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                     <span>Hackathon Wins</span>
                   </button>
                 </>
@@ -337,33 +337,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Key Department Statistics Ribbon (Striking for Outsiders & Recruiters) */}
-          <div className="grid grid-cols-2 gap-3 shrink-0 w-full lg:w-[360px]">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
-              <div className="text-xl sm:text-2xl font-extrabold font-mono text-emerald-400 whitespace-nowrap">₹48.0 LPA</div>
-              <div className="text-[11px] text-slate-300 mt-1">Highest CTC (Atlassian)</div>
+          {/* Key Department Statistics Ribbon (Balanced 2x2 Tile Ratios Across Devices) */}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 shrink-0 w-full lg:w-[360px] xl:w-[390px]">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[86px] sm:min-h-[100px]">
+              <div className="text-lg sm:text-2xl font-extrabold font-mono tabular-nums text-emerald-400 whitespace-nowrap">₹48.0 LPA</div>
+              <div className="text-[10px] sm:text-[11px] text-slate-300 mt-1 leading-tight">Highest CTC (Atlassian)</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
-              <div className="text-xl sm:text-2xl font-extrabold font-mono text-amber-300 whitespace-nowrap">₹1,50,000</div>
-              <div className="text-[11px] text-slate-300 mt-1">1st Prize Hackathon</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[86px] sm:min-h-[100px]">
+              <div className="text-lg sm:text-2xl font-extrabold font-mono tabular-nums text-amber-300 whitespace-nowrap">₹1,50,000</div>
+              <div className="text-[10px] sm:text-[11px] text-slate-300 mt-1 leading-tight">1st Prize Hackathon</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
-              <div className="text-xl sm:text-2xl font-extrabold font-mono text-blue-300 whitespace-nowrap">98.6%</div>
-              <div className="text-[11px] text-slate-300 mt-1">Placement Rate</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[86px] sm:min-h-[100px]">
+              <div className="text-lg sm:text-2xl font-extrabold font-mono tabular-nums text-blue-300 whitespace-nowrap">98.6%</div>
+              <div className="text-[10px] sm:text-[11px] text-slate-300 mt-1 leading-tight">Placement Rate</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
-              <div className="text-xl sm:text-2xl font-extrabold font-mono text-indigo-300 whitespace-nowrap">Top 50</div>
-              <div className="text-[11px] text-slate-300 mt-1">NIRF Engineering</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[86px] sm:min-h-[100px]">
+              <div className="text-lg sm:text-2xl font-extrabold font-mono tabular-nums text-indigo-300 whitespace-nowrap">Top 50</div>
+              <div className="text-[10px] sm:text-[11px] text-slate-300 mt-1 leading-tight">NIRF Engineering</div>
             </div>
           </div>
         </div>
 
         {/* Top Recruiters Ticker Ribbon */}
-        <div className="mt-8 pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
+        <div className="mt-6 sm:mt-8 pt-4 sm:pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 sm:gap-4 text-xs text-slate-400">
           <span className="font-semibold uppercase tracking-wider text-slate-300">
             Top Hiring Partners:
           </span>
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-mono text-slate-300 font-medium">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:gap-x-5 font-mono text-slate-300 font-medium">
             <span>Atlassian</span>
             <span aria-hidden="true" className="text-slate-600">·</span>
             <span>Google</span>
@@ -427,37 +427,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
           {summaryCounters.map((item) => (
             <button
               key={item.section}
               type="button"
               onClick={() => onNavigate(item.section)}
-              className={`group h-full flex flex-col justify-between text-left rounded-2xl border bg-white p-5 transition-all hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden ${
+              className={`group h-full min-h-[112px] sm:min-h-[124px] flex flex-col justify-between text-left rounded-2xl border bg-white p-3.5 sm:p-5 transition-all hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden ${
                 item.isLocked
                   ? 'border-amber-200/80 bg-amber-50/15 hover:border-amber-300'
                   : 'border-slate-200 hover:border-blue-400'
               }`}
             >
-              <div className="flex items-center justify-between gap-2 w-full">
-                <span className="text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors">
+              <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
+                <span className="text-[11px] sm:text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors leading-snug line-clamp-2">
                   {item.label}
                 </span>
                 {item.isLocked && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200 shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 sm:px-2 py-0.5 rounded-md border border-amber-200 shrink-0">
                     <Lock className="w-3 h-3 text-amber-600" />
-                    <span>Locked</span>
+                    <span className="hidden sm:inline">Locked</span>
                   </span>
                 )}
               </div>
 
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold font-mono tabular-nums text-slate-900">
+              <div className="mt-2 sm:mt-3 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900">
                   {item.count}
                 </span>
               </div>
 
-              <div className="mt-2 text-xs text-slate-500 truncate w-full">{item.subtext}</div>
+              <div className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-slate-500 truncate w-full">{item.subtext}</div>
             </button>
           ))}
         </div>
@@ -493,12 +493,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="spotlight-modal-title"
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
             onClick={(e) => {
               if (e.target === e.currentTarget) setIsFormOpen(false);
             }}
           >
-            <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+            <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-5 sm:p-7 shadow-2xl border border-slate-200">
               <form onSubmit={handleSaveSpotlight} className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h3 id="spotlight-modal-title" className="text-base font-bold text-slate-900">
@@ -620,7 +620,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Featured Banner + Spotlight Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          <div className="lg:col-span-5 relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 min-h-[280px] flex flex-col justify-end shadow-lg">
+          <div className="lg:col-span-5 relative overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 aspect-[4/3] sm:aspect-[16/9] lg:aspect-auto lg:min-h-[340px] flex flex-col justify-end shadow-lg">
             {!imgError ? (
               <img
                 src={showcaseBannerUrl}
@@ -634,12 +634,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Award className="h-14 w-14 text-slate-700" />
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/50 to-transparent" />
-            <div className="relative p-6 text-white space-y-2">
-              <div className="text-xs font-bold text-blue-300 tracking-wider uppercase">
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/55 to-transparent" />
+            <div className="relative p-5 sm:p-6 text-white space-y-1.5 sm:space-y-2">
+              <div className="text-[11px] sm:text-xs font-bold text-blue-300 tracking-wider uppercase">
                 CSE Advanced Innovation Center
               </div>
-              <h3 className="text-xl font-extrabold leading-snug text-balance text-white">
+              <h3 className="text-lg sm:text-xl font-extrabold leading-snug text-balance text-white">
                 Systems Engineering, Hackathon Champions & Elite Recruitment
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
@@ -648,7 +648,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-7 flex flex-col gap-4">
+          <div className="lg:col-span-7 flex flex-col gap-4 min-w-0">
             {spotlights.length === 0 ? (
               <div className="flex-1 rounded-3xl border border-slate-200 bg-white p-8 flex flex-col items-center justify-center text-center shadow-xs">
                 <p className="text-sm font-medium text-slate-700">
@@ -757,9 +757,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </section>
 
       {/* Department Research Labs & Infrastructure Overview (Attractive for Outsiders) */}
-      <section className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 space-y-6 shadow-xs">
+      <section className="rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-8 space-y-5 sm:space-y-6 shadow-xs">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
             Academic Infrastructure & Specialized Computing Centers
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -767,8 +767,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2 h-full flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 items-stretch">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5 space-y-2 h-full flex flex-col justify-between">
             <div className="space-y-2">
               <div className="text-xs font-bold text-blue-700 uppercase tracking-wider">
                 Lab 01 · High-Performance Computing

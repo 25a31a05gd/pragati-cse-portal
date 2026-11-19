@@ -168,18 +168,18 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
       aria-modal="true"
       aria-labelledby="reminders-modal-title"
     >
-      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
+      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 bg-slate-50/60">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-100 text-blue-700">
+        <div className="flex items-start sm:items-center justify-between gap-3 border-b border-slate-200 px-4 sm:px-5 py-3.5 sm:py-4 bg-slate-50/60">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-center h-8 w-8 shrink-0 rounded-lg bg-blue-100 text-blue-700">
               <Bell className="h-4 w-4" />
             </div>
-            <div>
-              <h2 id="reminders-modal-title" className="text-base font-bold text-slate-900">
+            <div className="min-w-0">
+              <h2 id="reminders-modal-title" className="text-sm sm:text-base font-bold text-slate-900">
                 Department Reminders & Alerts
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 leading-snug">
                 Live notifications for problem statements, placement drives, and personal study tasks
               </p>
             </div>
@@ -188,7 +188,7 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+            className="rounded-lg p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center shrink-0 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors"
             aria-label="Close modal"
           >
             <X className="h-4 w-4" />
@@ -196,11 +196,11 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
         </div>
 
         {/* Tab Controls */}
-        <div className="flex border-b border-slate-200 px-5 pt-3 bg-white gap-2">
+        <div className="flex border-b border-slate-200 px-4 sm:px-5 pt-2.5 bg-white gap-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('department')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`pb-2.5 px-3 min-h-[40px] text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'department'
                 ? 'border-blue-600 text-blue-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -217,7 +217,7 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('personal')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`pb-2.5 px-3 min-h-[40px] text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'personal'
                 ? 'border-blue-600 text-blue-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -233,7 +233,7 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
+        <div className="p-4 sm:p-5 pb-safe overflow-y-auto flex-1 space-y-4">
           {activeTab === 'department' ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-xs text-slate-500 pb-1">
@@ -268,27 +268,27 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                     return (
                       <div
                         key={notif.id}
-                        className={`rounded-xl border p-4 transition-all flex flex-col gap-2 ${
+                        className={`rounded-xl border p-3.5 sm:p-4 transition-all flex flex-col gap-2 ${
                           isUnread
                             ? 'border-blue-300 bg-blue-50/40'
                             : 'border-slate-200 bg-white hover:border-slate-300'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-medium text-slate-500 flex flex-wrap items-center gap-1.5">
                               <span className="capitalize font-semibold text-blue-700">
                                 {notif.type.replace('_', ' ')}
                               </span>
                               <span aria-hidden="true">·</span>
-                              <span>By {notif.actorName}</span>
+                              <span className="break-words">By {notif.actorName}</span>
                               {isUnread && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white">
                                   NEW
                                 </span>
                               )}
                             </div>
-                            <h3 className="mt-0.5 text-sm font-bold text-slate-900">
+                            <h3 className="mt-0.5 text-sm font-bold text-slate-900 break-words">
                               {notif.title}
                             </h3>
                           </div>
@@ -296,14 +296,14 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenNotification(notif)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+                            className="self-start inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 min-h-[34px] text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
                           >
                             <span>Open</span>
                             <ExternalLink className="h-3 w-3" />
                           </button>
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed">
+                        <p className="text-xs text-slate-600 leading-relaxed break-words">
                           {notif.message}
                         </p>
                       </div>
@@ -333,8 +333,8 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <h3 className="text-xs font-bold text-slate-800">
                         Tasks & Study Deadlines
                       </h3>
@@ -346,7 +346,7 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsAddingPersonal(!isAddingPersonal)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 min-h-[36px] text-xs font-semibold text-slate-800 hover:bg-slate-100 shrink-0"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       <span>{isAddingPersonal ? 'Cancel' : 'New Reminder'}</span>
@@ -486,17 +486,17 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                       {personalReminders.map((item) => (
                         <div
                           key={item.id}
-                          className={`rounded-xl border p-3.5 flex items-start justify-between gap-3 transition-colors ${
+                          className={`rounded-xl border p-3.5 flex items-start justify-between gap-2.5 sm:gap-3 transition-colors ${
                             item.completed
                               ? 'border-slate-200 bg-slate-50/70 text-slate-400 opacity-75'
                               : 'border-slate-200 bg-white hover:border-slate-300'
                           }`}
                         >
-                          <div className="flex items-start gap-3 min-w-0">
+                          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
                             <button
                               type="button"
                               onClick={() => handleToggleReminder(item.id)}
-                              className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
                                 item.completed
                                   ? 'border-emerald-600 bg-emerald-600 text-white'
                                   : 'border-slate-300 bg-white hover:border-blue-600'
@@ -506,10 +506,10 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                               {item.completed && <Check className="h-3 w-3 stroke-[3]" />}
                             </button>
 
-                            <div className="min-w-0 space-y-0.5">
-                              <div className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span
-                                  className={`text-xs font-semibold ${
+                                  className={`text-xs font-semibold break-words ${
                                     item.completed ? 'line-through text-slate-400' : 'text-slate-900'
                                   }`}
                                 >
@@ -517,7 +517,7 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                                 </span>
 
                                 <span
-                                  className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase ${
+                                  className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase shrink-0 ${
                                     item.priority === 'High'
                                       ? 'bg-red-100 text-red-700'
                                       : item.priority === 'Low'
@@ -530,12 +530,12 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                               </div>
 
                               {item.note && (
-                                <p className="text-[11px] text-slate-500 leading-normal">
+                                <p className="text-[11px] text-slate-500 leading-normal break-words">
                                   {item.note}
                                 </p>
                               )}
 
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
                                 <span className="capitalize">{item.category.replace('_', ' ')}</span>
                                 {item.dueDate && (
                                   <>
@@ -552,7 +552,7 @@ export const RemindersModal: React.FC<RemindersModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDeleteReminder(item.id)}
-                            className="rounded-lg p-1 text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                            className="rounded-lg p-1.5 min-h-[34px] min-w-[34px] flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
                             title="Delete reminder"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

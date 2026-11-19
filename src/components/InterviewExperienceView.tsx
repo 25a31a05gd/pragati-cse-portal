@@ -330,21 +330,21 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
   return (
     <div className="space-y-6">
       {/* Top Header & Action */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
           {selectedCompany ? (
             <div className="space-y-1">
               <button
                 type="button"
                 onClick={() => setSelectedCompany(null)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:underline py-1"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>All Companies</span>
               </button>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                <Building2 className="h-6 w-6 text-blue-600" />
-                <span>{selectedCompany} — Student Interview Experiences</span>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2 break-words">
+                <Building2 className="h-5 w-5 sm:h-6 sm:w-6 shrink-0 text-blue-600" />
+                <span className="min-w-0">{selectedCompany} — Student Interview Experiences</span>
               </h1>
               <p className="text-xs text-slate-600">
                 Detailed rounds, questions asked, role details, and required skills shared by experienced students.
@@ -352,7 +352,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
             </div>
           ) : (
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
                 Interview Experiences
               </h1>
               <p className="mt-1 text-sm text-slate-600">
@@ -365,7 +365,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
         <button
           type="button"
           onClick={() => handleOpenCreate(selectedCompany || '')}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 py-2.5 px-4 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 px-4 min-h-[40px] text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
         >
           <Plus className="h-4 w-4 shrink-0" />
           <span>Share Interview Experience</span>
@@ -378,12 +378,12 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
           role="dialog"
           aria-modal="true"
           aria-labelledby="interview-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-3xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form
               onSubmit={handleSubmit}
               className="space-y-4"
@@ -588,13 +588,13 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
                   key={idx}
                   className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2.5"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3">
                     <input
                       type="text"
                       value={round.roundTitle}
                       onChange={(e) => handleRoundChange(idx, 'roundTitle', e.target.value)}
                       placeholder={`Round ${idx + 1} Title`}
-                      className="flex-1 font-semibold text-xs text-slate-900 bg-transparent border-b border-slate-300 pb-1 focus:border-blue-600 focus:outline-none"
+                      className="min-w-0 flex-1 font-semibold text-xs text-slate-900 bg-transparent border-b border-slate-300 pb-1 focus:border-blue-600 focus:outline-none"
                     />
 
                     <div className="flex items-center gap-2">
@@ -724,7 +724,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
           </div>
 
           {filteredCompanyGroups.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-12 text-center">
               <Building2 className="mx-auto h-10 w-10 text-slate-300" />
               <h3 className="mt-3 text-base font-semibold text-slate-800">
                 No companies matched your query
@@ -734,7 +734,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch">
               {filteredCompanyGroups.map((group) => {
                 const packageList = Array.from(group.packages).slice(0, 2);
                 const roleList = Array.from(group.roles).slice(0, 3);
@@ -747,25 +747,25 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
                       setSelectedCompany(group.companyName);
                       setSearchQuery('');
                     }}
-                    className="group rounded-2xl border border-slate-200 bg-white p-5 flex flex-col justify-between gap-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                    className="group rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 flex flex-col justify-between gap-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer min-w-0"
                   >
-                    <div className="space-y-3">
+                    <div className="space-y-3 min-w-0">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 font-bold text-base font-display group-hover:bg-blue-600 group-hover:text-white transition-colors">
                             {group.companyName.charAt(0)}
                           </div>
-                          <div>
-                            <h2 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                          <div className="min-w-0">
+                            <h2 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                               {group.companyName}
                             </h2>
-                            <p className="text-[11px] text-slate-500 leading-tight">
+                            <p className="text-[11px] text-slate-500 leading-tight break-words">
                               {group.domain}
                             </p>
                           </div>
                         </div>
 
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 font-mono tabular-nums">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 font-mono tabular-nums whitespace-nowrap shrink-0">
                           {group.experiences.length} {group.experiences.length === 1 ? 'student' : 'students'}
                         </span>
                       </div>
@@ -830,13 +830,13 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
       {selectedCompany && selectedCompanyGroup && (
         <div className="space-y-6">
           {/* Company Summary Banner */}
-          <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-4 sm:p-6 text-white space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+              <div className="min-w-0">
                 <span className="text-xs font-semibold text-blue-300 uppercase tracking-wider">
                   Company Interview Dossier
                 </span>
-                <h2 className="text-2xl font-bold mt-1 text-white">
+                <h2 className="text-xl sm:text-2xl font-bold mt-1 text-white break-words">
                   {selectedCompanyGroup.companyName}
                 </h2>
                 <p className="text-xs text-slate-300 mt-0.5">
@@ -844,30 +844,30 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
                 </p>
               </div>
 
-              <div className="text-right">
+              <div className="text-left sm:text-right shrink-0">
                 <span className="text-xs text-slate-300">Total Student Experiences</span>
-                <div className="text-2xl font-bold font-mono tabular-nums text-white">
+                <div className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-white">
                   {selectedCompanyGroup.experiences.length}
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-3 border-t border-slate-700/60 text-xs">
-              <div>
+              <div className="min-w-0">
                 <span className="text-slate-400 block text-[11px]">Roles Taken</span>
-                <span className="font-medium text-slate-100">
+                <span className="font-medium text-slate-100 break-words">
                   {Array.from(selectedCompanyGroup.roles).join(', ') || 'Software Engineer'}
                 </span>
               </div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-slate-400 block text-[11px]">Packages Recorded</span>
-                <span className="font-mono font-bold text-blue-300">
+                <span className="font-mono font-bold text-blue-300 break-words">
                   {Array.from(selectedCompanyGroup.packages).join(' · ') || 'Competitive CTC'}
                 </span>
               </div>
-              <div>
+              <div className="min-w-0 sm:col-span-2 md:col-span-1">
                 <span className="text-slate-400 block text-[11px]">Required Core Skills</span>
-                <span className="font-medium text-slate-100">
+                <span className="font-medium text-slate-100 break-words">
                   {Array.from(selectedCompanyGroup.skills).join(', ') || 'Data Structures & Algorithms'}
                 </span>
               </div>
@@ -876,7 +876,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
 
           {/* Filtering */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+            <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100 p-1 w-full sm:w-auto">
               {[
                 { id: 'all', label: 'All Results' },
                 { id: 'selected', label: 'Selected / Offered' },
@@ -887,7 +887,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
                   key={tab.id}
                   type="button"
                   onClick={() => setFilterResult(tab.id)}
-                  className={`rounded-lg py-1.5 px-3 text-xs font-semibold transition-all whitespace-nowrap ${
+                  className={`rounded-lg py-1.5 px-2.5 sm:px-3 text-xs font-semibold transition-all whitespace-nowrap ${
                     filterResult === tab.id
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -905,7 +905,7 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
 
           {/* List of Experienced Students for this Company */}
           {filteredCompanyExperiences.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center">
               <p className="text-sm font-medium text-slate-700">
                 No interview experiences matched this filter for {selectedCompany}.
               </p>
@@ -915,12 +915,12 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
               {filteredCompanyExperiences.map((item) => (
                 <article
                   key={item.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4 shadow-2xs"
+                  className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4 shadow-2xs"
                 >
                   {/* Student & Role Header */}
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div>
-                      <div className="text-xs text-slate-500 flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         <span className="font-semibold text-slate-800">{item.hiringType}</span>
                         <span aria-hidden="true">·</span>
                         <span>{item.interviewDate}</span>
@@ -1004,28 +1004,28 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
                         <span>What They Asked in Each Round</span>
                       </h4>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
                         {item.rounds.map((round) => (
                           <div
                             key={round.roundNumber}
-                            className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-1.5"
+                            className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-1.5 min-w-0"
                           >
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold text-slate-900">{round.roundTitle}</span>
-                              <span className="font-mono text-[11px] font-semibold text-slate-600">
+                            <div className="flex items-start justify-between gap-2 text-xs">
+                              <span className="font-bold text-slate-900 break-words min-w-0">{round.roundTitle}</span>
+                              <span className="font-mono text-[11px] font-semibold text-slate-600 shrink-0">
                                 {round.difficulty}
                               </span>
                             </div>
 
                             {round.topicsCovered && (
-                              <div className="text-[11px] text-slate-600">
+                              <div className="text-[11px] text-slate-600 break-words">
                                 <span className="font-semibold text-slate-700">Topics: </span>
                                 {round.topicsCovered}
                               </div>
                             )}
 
                             {round.questionsAsked && (
-                              <div className="text-xs text-slate-800 bg-white rounded-lg p-2 border border-slate-200/80 leading-normal font-mono">
+                              <div className="text-xs text-slate-800 bg-white rounded-lg p-2 border border-slate-200/80 leading-normal font-mono break-words">
                                 {round.questionsAsked}
                               </div>
                             )}

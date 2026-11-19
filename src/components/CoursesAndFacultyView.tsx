@@ -217,9 +217,9 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Department Courses
           </h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -232,7 +232,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
           <button
             type="button"
             onClick={() => (isFormOpen && !editingId ? setIsFormOpen(false) : openCreateForm())}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
           >
             <Plus className="h-4 w-4 shrink-0" />
             <span>Add Course</span>
@@ -251,12 +251,12 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="course-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form
               onSubmit={handleSaveCourse}
               className="space-y-4"
@@ -431,7 +431,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
         }}
         className="flex items-center gap-2"
       >
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
@@ -441,12 +441,12 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
               if (!e.target.value) setAppliedQuery('');
             }}
             placeholder="Search courses by code, title, instructor, or topic..."
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 min-h-[40px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 py-2 px-4 text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap shrink-0"
+          className="rounded-lg bg-slate-900 py-2 px-3.5 sm:px-4 min-h-[40px] text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap shrink-0"
         >
           Search
         </button>
@@ -462,11 +462,11 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
           return (
             <article
               key={course.id}
-              className="rounded-xl border border-slate-200 bg-white p-6 space-y-3"
+              className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-3"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs text-slate-500">
+              <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="min-w-0">
+                  <div className="text-xs text-slate-500 break-words">
                     <span className="font-mono font-bold text-blue-700 uppercase">
                       {course.courseCode}
                     </span>
@@ -478,9 +478,9 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                     <span>{course.schedule}</span>
                   </div>
 
-                  <h2 className="mt-1 text-lg font-semibold text-slate-900">{course.title}</h2>
+                  <h2 className="mt-1 text-base sm:text-lg font-semibold text-slate-900 break-words">{course.title}</h2>
 
-                  <div className="text-xs text-slate-600 mt-0.5">
+                  <div className="text-xs text-slate-600 mt-0.5 break-words">
                     Instructor: <span className="font-semibold text-slate-800">{course.instructorName}</span>
                   </div>
                 </div>
@@ -505,9 +505,9 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                 )}
               </div>
 
-              <p className="text-sm text-slate-600 leading-relaxed">{course.description}</p>
+              <p className="text-sm text-slate-600 leading-relaxed break-words">{course.description}</p>
 
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-500 break-words">
                 Prerequisites: <span className="text-slate-700">{course.prerequisites}</span>
               </div>
 
@@ -516,13 +516,13 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                   {course.enrollments.length} student(s) enrolled
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   {safeExternalHref(course.resourceLink) && (
                     <a
                       href={safeExternalHref(course.resourceLink)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 px-3 text-xs font-medium text-slate-700 hover:border-slate-400 whitespace-nowrap"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 px-3 min-h-[36px] text-xs font-medium text-slate-700 hover:border-slate-400 whitespace-nowrap"
                     >
                       <span>Syllabus</span>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -537,7 +537,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                           expandedRosterCourseId === course.id ? null : course.id
                         )
                       }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 py-1.5 px-3.5 text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-1.5 px-3.5 min-h-[36px] text-xs font-semibold text-white hover:bg-slate-800 whitespace-nowrap"
                     >
                       <Users className="h-3.5 w-3.5 shrink-0" />
                       <span>
@@ -547,7 +547,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                       </span>
                     </button>
                   ) : isEnrolled ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-1.5 px-3.5 text-xs font-semibold text-emerald-800 whitespace-nowrap">
+                    <span className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-1.5 px-3.5 min-h-[36px] text-xs font-semibold text-emerald-800 whitespace-nowrap">
                       <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                       <span>Applied / Enrolled</span>
                     </span>
@@ -555,7 +555,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleEnroll(course.id)}
-                      className="rounded-lg bg-blue-600 py-1.5 px-4 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
+                      className="rounded-lg bg-blue-600 py-1.5 px-4 min-h-[36px] text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap"
                     >
                       Apply / Enroll
                     </button>
@@ -568,36 +568,63 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                   {course.enrollments.length === 0 ? (
                     <p className="text-xs text-slate-500">No students enrolled yet.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-slate-500">
-                            <th className="py-2 pr-4 font-medium">Student ID</th>
-                            <th className="py-2 pr-4 font-medium">Student Name</th>
-                            <th className="py-2 font-medium">Email</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {course.enrollments.map((en) => (
-                            <tr key={en.studentId}>
-                              <td className="py-2 pr-4 font-mono">
-                                <button
-                                  type="button"
-                                  onClick={() => onInspectStudentId(en.studentMemberId)}
-                                  className="text-blue-700 hover:underline"
-                                >
-                                  {en.studentMemberId}
-                                </button>
-                              </td>
-                              <td className="py-2 pr-4 font-medium text-slate-800">
+                    <>
+                      {/* Mobile enrollment cards */}
+                      <div className="sm:hidden space-y-2">
+                        {course.enrollments.map((en) => (
+                          <div
+                            key={en.studentId}
+                            className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => onInspectStudentId(en.studentMemberId)}
+                                className="font-mono font-semibold text-blue-700 hover:underline"
+                              >
+                                {en.studentMemberId}
+                              </button>
+                              <span className="font-semibold text-slate-800 truncate">
                                 {en.studentName}
-                              </td>
-                              <td className="py-2 text-slate-600">{en.studentEmail}</td>
+                              </span>
+                            </div>
+                            <div className="text-slate-600 break-all">{en.studentEmail}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop table */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-slate-500">
+                              <th className="py-2 pr-4 font-medium">Student ID</th>
+                              <th className="py-2 pr-4 font-medium">Student Name</th>
+                              <th className="py-2 font-medium">Email</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {course.enrollments.map((en) => (
+                              <tr key={en.studentId}>
+                                <td className="py-2 pr-4 font-mono">
+                                  <button
+                                    type="button"
+                                    onClick={() => onInspectStudentId(en.studentMemberId)}
+                                    className="text-blue-700 hover:underline"
+                                  >
+                                    {en.studentMemberId}
+                                  </button>
+                                </td>
+                                <td className="py-2 pr-4 font-medium text-slate-800">
+                                  {en.studentName}
+                                </td>
+                                <td className="py-2 text-slate-600">{en.studentEmail}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -688,9 +715,9 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Lab Manuals & Academic Resources
           </h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -702,7 +729,7 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
           <button
             type="button"
             onClick={() => setIsFormOpen(!isFormOpen)}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
           >
             <Plus className="h-4 w-4 shrink-0" />
             <span>Add Resource</span>
@@ -715,12 +742,12 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="resource-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form
               onSubmit={handleSave}
               className="space-y-4"
@@ -839,15 +866,15 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         {filtered.map((res) => (
           <article
             key={res.id}
-            className="rounded-xl border border-slate-200 bg-white p-6 flex flex-col justify-between gap-4"
+            className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 flex flex-col justify-between gap-4 min-w-0"
           >
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 break-words min-w-0">
                   <span>{res.resourceType}</span>
                   <span aria-hidden="true"> · </span>
                   <span>{res.subjectOrLab}</span>
@@ -857,17 +884,17 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDelete(res.id)}
-                      className="rounded-md p-1 text-slate-400 hover:text-red-600"
+                      className="rounded-md p-1 text-slate-400 hover:text-red-600 shrink-0"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
               </div>
-              <h2 className="text-base font-semibold text-slate-900">{res.title}</h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{res.description}</p>
+              <h2 className="text-base font-semibold text-slate-900 break-words">{res.title}</h2>
+              <p className="text-sm text-slate-600 leading-relaxed break-words">{res.description}</p>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-slate-500">Curated by {res.authorName}</span>
               {safeExternalHref(res.resourceLink) && (
                 <a

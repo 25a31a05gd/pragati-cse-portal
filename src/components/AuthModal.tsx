@@ -395,8 +395,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-3xl bg-slate-900/95 border border-cyan-500/30 p-6 sm:p-8 shadow-2xl shadow-cyan-950/60 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl max-h-[92dvh] overflow-y-auto rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-cyan-500/30 p-4 sm:p-8 shadow-2xl shadow-cyan-950/60 backdrop-blur-2xl">
         {/* Glow Highlights */}
         <div className="absolute -top-24 -right-24 w-72 h-72 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -404,25 +404,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors z-20"
+          className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors z-20"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* College Header & Branding */}
-        <div className="relative z-10 text-center pb-5 border-b border-slate-800/80">
-          <div className="flex items-center justify-center gap-3 mb-2.5">
+        <div className="relative z-10 text-center pb-4 sm:pb-5 border-b border-slate-800/80 pr-8 sm:pr-0">
+          <div className="flex items-center justify-start sm:justify-center gap-3 mb-2.5">
             <img
               src="/pragati-logo.png"
               alt="Pragati Engineering College"
-              className="w-14 h-14 object-contain rounded-full shadow-lg p-0.5 bg-white/5 border border-cyan-400/40"
+              className="w-11 h-11 sm:w-14 sm:h-14 shrink-0 object-contain rounded-full shadow-lg p-0.5 bg-white/5 border border-cyan-400/40"
             />
-            <div className="text-left">
+            <div className="text-left min-w-0">
               <span className="text-[10px] tracking-wider font-extrabold uppercase text-cyan-400 block">
                 AUTONOMOUS · NBA & NAAC ACCREDITED 'A' GRADE
               </span>
-              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight leading-tight">
+              <h2 className="text-base sm:text-xl font-black text-white tracking-tight leading-tight">
                 PRAGATI ENGINEERING COLLEGE
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
@@ -431,7 +431,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-cyan-950/80 to-blue-950/80 text-cyan-300 border border-cyan-500/30">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span>Institutional Unified Campus Portal</span>
           </div>
         </div>
@@ -477,11 +477,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         ) : (
           <div className="relative z-10 pt-5 space-y-5">
             {/* THREE ROLE SELECTION TABS */}
-            <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-slate-950/80 border border-slate-800">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-slate-950/80 border border-slate-800">
               <button
                 type="button"
                 onClick={() => setSelectedRole('student')}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-3 min-h-[42px] rounded-xl text-xs font-bold transition-all ${
                   selectedRole === 'student'
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/25 scale-[1.02]'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
@@ -494,7 +494,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedRole('faculty')}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-3 min-h-[42px] rounded-xl text-xs font-bold transition-all ${
                   selectedRole === 'faculty'
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/25 scale-[1.02]'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
@@ -507,7 +507,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedRole('admin')}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-3 min-h-[42px] rounded-xl text-xs font-bold transition-all ${
                   selectedRole === 'admin'
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/25 scale-[1.02]'
                     : 'text-slate-400 hover:text-white hover:bg-slate-900/60'

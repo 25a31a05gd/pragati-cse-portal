@@ -177,9 +177,9 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Faculty Directory
           </h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -192,7 +192,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
           <button
             type="button"
             onClick={() => (isFormOpen && !editingId ? setIsFormOpen(false) : openCreateForm())}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0 shadow-sm"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0 shadow-sm"
           >
             <Plus className="h-4 w-4 shrink-0" />
             <span>Add Faculty Member</span>
@@ -202,32 +202,32 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
 
       {/* Role notice for students */}
       {isStudent && (
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex items-center justify-between gap-3">
-          <span>
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+          <span className="min-w-0">
             <strong className="text-slate-800">Student Directory View:</strong> You have read-only access to browse department faculty names, designations, and contact info.
           </span>
-          <span className="font-mono text-slate-400">View Only</span>
+          <span className="font-mono text-slate-400 shrink-0">View Only</span>
         </div>
       )}
 
       {/* Search & Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px]">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="relative flex-1 min-w-0 sm:min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && setAppliedQuery(searchInput)}
-            placeholder="Search by faculty name, designation, specialization (e.g. HOD, Cloud, Networks)..."
-            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none bg-white"
+            placeholder="Search by faculty name, designation, or specialization..."
+            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 min-h-[40px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none bg-white"
           />
         </div>
 
         <button
           type="button"
           onClick={() => setAppliedQuery(searchInput)}
-          className="rounded-lg bg-slate-900 py-2 px-4 text-sm font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap"
+          className="rounded-lg bg-slate-900 py-2 px-3.5 sm:px-4 min-h-[40px] text-xs sm:text-sm font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
         >
           Search
         </button>
@@ -239,7 +239,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
               setSearchInput('');
               setAppliedQuery('');
             }}
-            className="text-xs text-slate-500 hover:text-slate-800 underline"
+            className="text-xs text-slate-500 hover:text-slate-800 underline shrink-0"
           >
             Clear
           </button>
@@ -277,12 +277,12 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="faculty-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form onSubmit={handleSaveFaculty} className="space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 id="faculty-modal-title" className="text-base font-bold text-slate-900">
@@ -443,7 +443,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
 
       {/* Faculty Cards Grid */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 sm:p-12 text-center">
           <GraduationCap className="mx-auto h-8 w-8 text-slate-400" />
           <h3 className="mt-3 text-base font-semibold text-slate-900">
             No Faculty Members Found
@@ -453,7 +453,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch">
           {filtered.map((faculty) => {
             const isHod = faculty.designation.toLowerCase().includes('hod') || faculty.designation.toLowerCase().includes('head of department');
             const canEdit = canModifyFaculty(faculty);
@@ -461,7 +461,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
             return (
               <article
                 key={faculty.id}
-                className={`relative rounded-xl border bg-white p-5 flex flex-col justify-between transition-all hover:shadow-md ${
+                className={`relative rounded-xl border bg-white p-4 sm:p-5 flex flex-col justify-between transition-all hover:shadow-md min-w-0 ${
                   isHod
                     ? 'border-blue-300 ring-1 ring-blue-100 bg-gradient-to-b from-blue-50/30 to-white'
                     : 'border-slate-200 hover:border-slate-300'

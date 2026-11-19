@@ -201,7 +201,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
           Search Student by ID
         </h1>
         <p className="mt-1 text-sm text-slate-600">
@@ -210,19 +210,19 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
-            placeholder="Enter Student ID (e.g. 22CSE104) or Student Name..."
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+            placeholder="Enter Student ID (e.g. 22CSE104) or Name..."
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 min-h-[42px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-blue-600 py-2.5 px-5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+          className="rounded-lg bg-blue-600 py-2.5 px-3.5 sm:px-5 min-h-[42px] text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
         >
           Search ID
         </button>
@@ -275,7 +275,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Student List */}
-          <div className="lg:col-span-4 space-y-2">
+          <div className="lg:col-span-4 space-y-2 max-h-56 lg:max-h-[72vh] overflow-y-auto pr-1">
             {results.map((entry) => {
               const isSelected = selectedStudent?.profile.id === entry.profile.id;
               return (
@@ -283,7 +283,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                   key={entry.profile.id}
                   type="button"
                   onClick={() => setSelectedStudent(entry)}
-                  className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                  className={`w-full text-left rounded-xl border p-3.5 sm:p-4 transition-colors ${
                     isSelected
                       ? 'border-blue-600 bg-blue-50/40'
                       : 'border-slate-200 bg-white hover:border-slate-300'
@@ -297,10 +297,10 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                       CGPA {entry.profile.cgpa.toFixed(2)}
                     </span>
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                  <div className="mt-1 text-sm font-semibold text-slate-900 truncate">
                     {entry.profile.name}
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500">
+                  <div className="mt-0.5 text-xs text-slate-500 truncate">
                     {entry.profile.batchOrDesignation}
                   </div>
                 </button>
@@ -310,26 +310,26 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
 
           {/* Selected Student Detailed Profile */}
           {selectedStudent && (
-            <div className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-6 space-y-6">
-              <div className="border-b border-slate-100 pb-4 flex flex-wrap items-start justify-between gap-4">
+            <div className="lg:col-span-8 rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-6 min-w-0">
+              <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-slate-500 break-words">
                     <span className="font-mono font-semibold text-blue-700">
                       {selectedStudent.profile.memberId}
                     </span>
                     <span aria-hidden="true"> · </span>
                     <span>{selectedStudent.profile.batchOrDesignation}</span>
                   </div>
-                  <h2 className="mt-1 text-xl font-bold text-slate-900">
+                  <h2 className="mt-1 text-lg sm:text-xl font-bold text-slate-900 break-words">
                     {selectedStudent.profile.name}
                   </h2>
                   {selectedStudent.profile.bio && (
-                    <p className="mt-1.5 text-sm text-slate-600">
+                    <p className="mt-1.5 text-sm text-slate-600 break-words">
                       {selectedStudent.profile.bio}
                     </p>
                   )}
                   {selectedStudent.profile.skills && (
-                    <div className="mt-2 text-xs text-slate-500">
+                    <div className="mt-2 text-xs text-slate-500 break-words">
                       Skills: <span className="text-slate-800">{selectedStudent.profile.skills}</span>
                     </div>
                   )}
@@ -340,10 +340,10 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <div className="text-right">
+                <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0 w-full sm:w-auto">
+                  <div className="text-left sm:text-right">
                     <div className="text-xs text-slate-500">Current CGPA</div>
-                    <div className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+                    <div className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-slate-900">
                       {selectedStudent.profile.cgpa.toFixed(2)}
                     </div>
                   </div>
@@ -352,7 +352,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                     <button
                       type="button"
                       onClick={() => openEditModal(selectedStudent.profile)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 min-h-[36px] text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors whitespace-nowrap"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       <span>Edit Student Details</span>
@@ -366,8 +366,8 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                 <h3 className="text-xs font-semibold text-slate-800">
                   Synced Coding Platform Progress
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
-                  <div className="rounded-lg border border-slate-200 p-4 flex flex-col justify-between gap-2 h-full">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-stretch">
+                  <div className="rounded-lg border border-slate-200 p-4 flex flex-col justify-between gap-2 h-full min-w-0">
                     <div>
                       <div className="text-xs text-slate-500">LeetCode Solved</div>
                       <div className="mt-1 text-2xl font-bold font-mono tabular-nums text-slate-900">
@@ -441,7 +441,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-slate-200 p-4 flex flex-col justify-between gap-2 h-full">
+                  <div className="rounded-lg border border-slate-200 p-4 flex flex-col justify-between gap-2 h-full min-w-0">
                     <div>
                       <div className="text-xs text-slate-500">HackerRank 5★ Badges</div>
                       <div className="mt-1 text-2xl font-bold font-mono tabular-nums text-slate-900">
@@ -511,7 +511,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-slate-200 p-4 flex flex-col justify-between gap-2 h-full">
+                  <div className="rounded-lg border border-slate-200 p-4 flex flex-col justify-between gap-2 h-full min-w-0">
                     <div>
                       <div className="text-xs text-slate-500">GitHub Projects</div>
                       <div className="mt-1 text-2xl font-bold font-mono tabular-nums text-slate-900">
@@ -626,12 +626,12 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="edit-student-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setEditModalOpen(false);
           }}
         >
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 id="edit-student-modal-title" className="text-base font-bold text-slate-900">
                 Edit Student Profile — {selectedStudent.profile.memberId}

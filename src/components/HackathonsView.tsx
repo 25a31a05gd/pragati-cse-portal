@@ -144,9 +144,9 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header + "+" Symbol Trigger */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Hackathon Experience
           </h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -157,7 +157,7 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
         <button
           type="button"
           onClick={handlePlusClick}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 px-4 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
           title="Share Hackathon Experience"
         >
           <Plus className="h-4 w-4 shrink-0" />
@@ -171,12 +171,12 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="hackathon-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-xs overflow-y-auto"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormOpen(false);
           }}
         >
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-7 shadow-2xl border border-slate-200">
+          <div className="relative w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-7 shadow-2xl border border-slate-200">
             <form
               onSubmit={handleSubmit}
               className="space-y-4"
@@ -320,7 +320,7 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
         }}
         className="flex items-center gap-2"
       >
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
@@ -329,13 +329,13 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
               setSearchInput(e.target.value);
               if (!e.target.value) setAppliedQuery('');
             }}
-            placeholder="Search by hackathon title, technology stack, student name, or ID..."
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+            placeholder="Search by hackathon, stack, student name, or ID..."
+            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 min-h-[40px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
           />
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 py-2 px-4 text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+          className="rounded-lg bg-slate-900 py-2 px-3.5 sm:px-4 min-h-[40px] text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
         >
           Search
         </button>
@@ -343,7 +343,7 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
 
       {/* Entries List */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
+        <div className="rounded-xl border border-slate-200 bg-white p-8 sm:p-10 text-center">
           <p className="text-sm font-medium text-slate-700">
             No hackathon experiences matched your search.
           </p>
@@ -356,11 +356,11 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
           {filtered.map((item) => (
             <article
               key={item.id}
-              className="rounded-xl border border-slate-200 bg-white p-6 space-y-3"
+              className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-3"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="text-xs text-slate-500">
+              <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="space-y-1 min-w-0">
+                  <div className="text-xs text-slate-500 break-words">
                     <span>{item.organizer || 'Hackathon Event'}</span>
                     {item.eventDate && (
                       <>
@@ -375,11 +375,11 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
                       </>
                     )}
                   </div>
-                  <h2 className="text-lg font-semibold text-slate-900">
+                  <h2 className="text-base sm:text-lg font-semibold text-slate-900 break-words">
                     {item.hackathonName}
                   </h2>
                   {item.teamAndRole && (
-                    <div className="text-xs text-slate-600">{item.teamAndRole}</div>
+                    <div className="text-xs text-slate-600 break-words">{item.teamAndRole}</div>
                   )}
                 </div>
 
@@ -405,12 +405,12 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
                 )}
               </div>
 
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
                 {item.overallExperience}
               </p>
 
               <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                <div>
+                <div className="min-w-0 break-all sm:break-words">
                   <span>Shared by </span>
                   <span className="font-medium text-slate-800">{item.authorName}</span>
                   <span aria-hidden="true"> · </span>
@@ -431,7 +431,7 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
                   )}
                 </div>
                 {item.technologies && (
-                  <div className="text-slate-600">Stack: {item.technologies}</div>
+                  <div className="text-slate-600 break-words">Stack: {item.technologies}</div>
                 )}
               </div>
             </article>

@@ -183,7 +183,7 @@ export const LockedGateView: React.FC<LockedGateViewProps> = ({
   const Icon = meta.icon;
 
   return (
-    <div className="max-w-2xl mx-auto py-10 px-4 text-center space-y-7 animate-in fade-in duration-300">
+    <div className="max-w-2xl mx-auto py-6 sm:py-10 px-2 sm:px-4 text-center space-y-5 sm:space-y-7 animate-in fade-in duration-300">
       {/* Padlock Emblem with Glowing Outer Ring */}
       <div className="relative inline-flex items-center justify-center">
         <div className="absolute inset-0 rounded-3xl bg-blue-500/15 blur-xl pointer-events-none scale-125" />
@@ -209,16 +209,16 @@ export const LockedGateView: React.FC<LockedGateViewProps> = ({
       </div>
 
       {/* Preview Card showing what is locked inside */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-6 text-left shadow-sm space-y-4">
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-6 text-left shadow-sm space-y-4">
         <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
           <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
             <Icon className="w-4 h-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="text-xs font-semibold uppercase tracking-wider text-blue-700">
               {meta.category}
             </div>
-            <div className="text-sm font-bold text-slate-900">{meta.title}</div>
+            <div className="text-sm font-bold text-slate-900 break-words">{meta.title}</div>
           </div>
         </div>
 
@@ -244,7 +244,7 @@ export const LockedGateView: React.FC<LockedGateViewProps> = ({
         <button
           type="button"
           onClick={onRequireAuth}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 py-3 px-6 text-sm font-bold text-white shadow-md transition-all active:scale-98"
+          className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 py-3 px-6 text-sm font-bold text-white shadow-md transition-all active:scale-98"
         >
           <span>Login / Create Account to Unlock</span>
           <ArrowRight className="w-4 h-4" />
@@ -253,7 +253,7 @@ export const LockedGateView: React.FC<LockedGateViewProps> = ({
         <button
           type="button"
           onClick={onNavigateHome}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 hover:bg-slate-100 py-3 px-5 text-sm font-medium text-slate-700 transition-colors"
+          className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 hover:bg-slate-100 py-3 px-5 text-sm font-medium text-slate-700 transition-colors"
         >
           <span>Back to Public Dashboard</span>
         </button>
