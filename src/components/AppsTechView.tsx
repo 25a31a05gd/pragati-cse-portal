@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, ExternalLink, Pencil, Trash2, X } from 'lucide-react';
-import { apiRequest } from '../api';
+import { apiRequest, safeExternalHref } from '../api';
 import type { AppTechnology, PublicUserProfile } from '../types';
 
 interface AppsTechViewProps {
@@ -417,15 +417,17 @@ export const AppsTechView: React.FC<AppsTechViewProps> = ({
                   )}
                 </div>
 
-                <a
-                  href={item.appLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 py-1.5 px-3.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <span>Visit App</span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                </a>
+                {safeExternalHref(item.appLink) && (
+                  <a
+                    href={safeExternalHref(item.appLink)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 py-1.5 px-3.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <span>Visit App</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                )}
               </div>
             </article>
           ))}

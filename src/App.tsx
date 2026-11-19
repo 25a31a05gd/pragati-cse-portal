@@ -35,6 +35,7 @@ import type {
   PortalBootstrapPayload,
   PortalNotification,
   PortalProgress,
+  PortalPublicCounts,
   PortalReminderItem,
   ProblemStatement,
   PublicUserProfile,
@@ -111,6 +112,7 @@ export function App() {
   const [resources, setResources] = useState<AcademicResource[]>([]);
   const [notifications, setNotifications] = useState<PortalNotification[]>([]);
   const [personalReminders, setPersonalReminders] = useState<PortalReminderItem[]>([]);
+  const [publicCounts, setPublicCounts] = useState<PortalPublicCounts | undefined>(undefined);
 
   const [studentSearchSeed, setStudentSearchSeed] = useState('');
   const [loadingBootstrap, setLoadingBootstrap] = useState(true);
@@ -134,6 +136,7 @@ export function App() {
       setFacultyMembers(data.facultyMembers || []);
       setResources(data.resources || []);
       setNotifications(data.notifications || []);
+      setPublicCounts(data.publicCounts);
       if (data.personalReminders) {
         setPersonalReminders(data.personalReminders);
       }
@@ -206,6 +209,7 @@ export function App() {
     setUserProgress(EMPTY_PROGRESS);
     setPersonalReminders([]);
     setActiveSection('dashboard');
+    await fetchBootstrap();
   };
 
   const handleNavigate = (section: NavSection) => {
@@ -700,6 +704,7 @@ export function App() {
                       placements={placements}
                       courses={courses}
                       facultyMembers={facultyMembers}
+                      publicCounts={publicCounts}
                       onNavigate={handleNavigate}
                       onSpotlightsChange={setSpotlights}
                     />
@@ -770,6 +775,7 @@ export function App() {
                       onNavigate={handleNavigate}
                       onInspectStudentId={handleInspectStudentId}
                       onProgressUpdated={setUserProgress}
+                      onProfileRefresh={refreshCurrentUser}
                     />
                   )}
 
@@ -790,6 +796,7 @@ export function App() {
                       facultyMembers={facultyMembers}
                       onFacultyChange={setFacultyMembers}
                       onRequireAuth={() => setAuthModalOpen(true)}
+                      onProfileRefresh={refreshCurrentUser}
                     />
                   )}
 
@@ -802,7 +809,10 @@ export function App() {
                   )}
 
                   {activeSection === 'student-search' && (
-                    <StudentSearchView initialQuery={studentSearchSeed} />
+                    <StudentSearchView
+                      initialQuery={studentSearchSeed}
+                      currentUser={currentUser}
+                    />
                   )}
 
                   {activeSection === 'profile' && currentUser && (
@@ -813,6 +823,7 @@ export function App() {
                       onProfileSaved={(nextProfile, nextProgress) => {
                         setCurrentUser(nextProfile);
                         setUserProgress(nextProgress);
+                        fetchBootstrap();
                       }}
                       onMarkNotificationsRead={handleMarkNotificationsRead}
                       onNavigate={handleNavigate}
@@ -824,6 +835,12 @@ export function App() {
                     <AdminDashboardView
                       currentUser={currentUser}
                       onLogout={handleLogout}
+                      onFacultyChanged={fetchBootstrap}
+                      onProfileUpdated={(nextProfile, nextProgress) => {
+                        setCurrentUser(nextProfile);
+                        setUserProgress(nextProgress);
+                        fetchBootstrap();
+                      }}
                     />
                   )}
                 </>

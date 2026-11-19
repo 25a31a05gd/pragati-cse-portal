@@ -1,0 +1,185 @@
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import postgres, { type Sql } from 'postgres';
+import * as schema from './schema';
+
+export type AppDatabase = PostgresJsDatabase<typeof schema>;
+
+export type DatabaseConnectionMode =
+  | 'transaction_pooler'
+  | 'session_pooler'
+  | 'direct'
+  | 'custom';
+
+export interface DatabaseConnectionMetadata {
+  configured: boolean;
+  connectionMode: DatabaseConnectionMode | 'unconfigured' | 'invalid_url';
+  port: string | null;
+  prepareDisabled: boolean;
+  sslMode: 'require' | 'verify-full' | 'disabled';
+}
+
+export interface DatabaseReadinessStatus extends DatabaseConnectionMetadata {
+  connected: boolean;
+  latencyMs?: number;
+  errorCode?: string;
+}
+
+interface ResolvedConfig {
+  connectionString: string;
+  prepare: boolean;
+  ssl: 'require' | 'verify-full' | false;
+  metadata: DatabaseConnectionMetadata;
+}
+
+function resolveDatabaseConfig(rawUrl: string | undefined): ResolvedConfig | null {
+  const trimmed = (rawUrl || '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const port = parsed.port || '5432';
+  const pgbouncerParam = parsed.searchParams.get('pgbouncer') === 'true';
+  const sslmodeParam = (parsed.searchParams.get('sslmode') || '').toLowerCase();
+  const isPoolerHost = hostname.endsWith('.pooler.supabase.com');
+  const isLocal =
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+
+  let connectionMode: DatabaseConnectionMode;
+  if (port === '6543' || pgbouncerParam) {
+    connectionMode = 'transaction_pooler';
+  } else if (isPoolerHost && port === '5432') {
+    connectionMode = 'session_pooler';
+  } else if (hostname.endsWith('.supabase.co') || hostname.endsWith('.supabase.com')) {
+    connectionMode = 'direct';
+  } else {
+    connectionMode = 'custom';
+  }
+
+  // Supabase Transaction Pooler (Supavisor on port 6543) does not support
+  // protocol-level prepared statements, so prepare MUST be false.
+  const prepare = connectionMode !== 'transaction_pooler';
+
+  let ssl: 'require' | 'verify-full' | false = 'require';
+  let sslMode: 'require' | 'verify-full' | 'disabled' = 'require';
+  if (isLocal || sslmodeParam === 'disable') {
+    ssl = false;
+    sslMode = 'disabled';
+  } else if (sslmodeParam === 'verify-full' || sslmodeParam === 'verify-ca') {
+    ssl = 'verify-full';
+    sslMode = 'verify-full';
+  }
+
+  return {
+    connectionString: trimmed,
+    prepare,
+    ssl,
+    metadata: {
+      configured: true,
+      connectionMode,
+      port,
+      prepareDisabled: !prepare,
+      sslMode,
+    },
+  };
+}
+
+let cachedSql: Sql | null = null;
+let cachedDb: AppDatabase | null = null;
+let cachedMetadata: DatabaseConnectionMetadata | null = null;
+
+function ensureInitialized(): boolean {
+  if (cachedDb && cachedSql && cachedMetadata) {
+    return true;
+  }
+
+  const rawUrl = process.env.DATABASE_URL;
+  const resolved = resolveDatabaseConfig(rawUrl);
+  if (!resolved) {
+    cachedMetadata = {
+      configured: Boolean((rawUrl || '').trim()),
+      connectionMode: (rawUrl || '').trim() ? 'invalid_url' : 'unconfigured',
+      port: null,
+      prepareDisabled: false,
+      sslMode: 'disabled',
+    };
+    return false;
+  }
+
+  cachedSql = postgres(resolved.connectionString, {
+    prepare: resolved.prepare,
+    ssl: resolved.ssl,
+    max: 5,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
+  cachedDb = drizzle(cachedSql, { schema });
+  cachedMetadata = resolved.metadata;
+  return true;
+}
+
+export function getDb(): AppDatabase | null {
+  if (!ensureInitialized()) return null;
+  return cachedDb;
+}
+
+export function requireDb(): AppDatabase {
+  const db = getDb();
+  if (!db) {
+    throw new Error('Database connection is not configured (DATABASE_URL missing or invalid).');
+  }
+  return db;
+}
+
+export function getConnectionMetadata(): DatabaseConnectionMetadata {
+  ensureInitialized();
+  return (
+    cachedMetadata ?? {
+      configured: false,
+      connectionMode: 'unconfigured',
+      port: null,
+      prepareDisabled: false,
+      sslMode: 'disabled',
+    }
+  );
+}
+
+export async function checkDatabaseReadiness(): Promise<DatabaseReadinessStatus> {
+  const ready = ensureInitialized();
+  const metadata = getConnectionMetadata();
+
+  if (!ready || !cachedSql) {
+    return {
+      ...metadata,
+      connected: false,
+      errorCode: metadata.configured ? 'INVALID_DATABASE_URL' : 'DATABASE_URL_MISSING',
+    };
+  }
+
+  const startedAt = Date.now();
+  try {
+    await cachedSql`SELECT 1 AS readiness_check`;
+    return {
+      ...metadata,
+      connected: true,
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch (err) {
+    const pgError = err as { code?: string; name?: string };
+    return {
+      ...metadata,
+      connected: false,
+      latencyMs: Date.now() - startedAt,
+      errorCode: pgError?.code || pgError?.name || 'CONNECTION_FAILED',
+    };
+  }
+}
+
+export { schema };

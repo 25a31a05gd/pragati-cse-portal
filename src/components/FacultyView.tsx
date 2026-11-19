@@ -21,6 +21,7 @@ interface FacultyViewProps {
   facultyMembers: FacultyMember[];
   onFacultyChange: (next: FacultyMember[]) => void;
   onRequireAuth: () => void;
+  onProfileRefresh?: () => Promise<void> | void;
 }
 
 const DESIGNATION_OPTIONS = [
@@ -38,6 +39,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
   facultyMembers,
   onFacultyChange,
   onRequireAuth,
+  onProfileRefresh,
 }) => {
   const isStudent = currentUser?.role === 'student';
   const canCreate = Boolean(
@@ -66,7 +68,10 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
   const canModifyFaculty = (item: FacultyMember) => {
     if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
-    return currentUser.role === 'faculty' && item.authorId === currentUser.id;
+    if (currentUser.role !== 'faculty') return false;
+    return item.linkedUserId
+      ? item.linkedUserId === currentUser.id
+      : item.authorId === currentUser.id;
   };
 
   const openCreateForm = () => {
@@ -80,7 +85,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
     setName(currentUser.role === 'faculty' ? currentUser.name : '');
     setDesignation('Assistant Professor');
     setSpecialization('');
-    setEmail(currentUser.email);
+    setEmail(currentUser.role === 'faculty' ? currentUser.email : '');
     setPhoneOrCabin('Cabin LH-302 · Ext 210');
     setQualification('M.Tech / Ph.D in Computer Science');
     setExperienceYears('6');
@@ -125,6 +130,9 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
           body: JSON.stringify(payload),
         });
         onFacultyChange(facultyMembers.map((f) => (f.id === editingId ? updated : f)));
+        if (updated.linkedUserId && updated.linkedUserId === currentUser?.id) {
+          await onProfileRefresh?.();
+        }
       } else {
         const created = await apiRequest<FacultyMember>('/api/faculty', {
           method: 'POST',
@@ -321,6 +329,9 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
                     onChange={(e) => setDesignation(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none bg-white"
                   >
+                    {!DESIGNATION_OPTIONS.includes(designation) && designation && (
+                      <option value={designation}>{designation}</option>
+                    )}
                     {DESIGNATION_OPTIONS.map((d) => (
                       <option key={d} value={d}>
                         {d}

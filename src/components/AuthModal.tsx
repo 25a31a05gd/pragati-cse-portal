@@ -177,7 +177,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       setStoredToken(data.token);
-      localStorage.setItem('dept_portal_token', data.token);
       setSuccessMessage('Login successful! Welcome back.');
       setTimeout(() => {
         onAuthenticated(data.profile, data.progress);
@@ -242,7 +241,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       setStoredToken(data.token);
-      localStorage.setItem('dept_portal_token', data.token);
       setSuccessMessage('Student registration successful! Logging you in...');
       setTimeout(() => {
         onAuthenticated(data.profile, data.progress);
@@ -282,7 +280,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       setStoredToken(data.token);
-      localStorage.setItem('dept_portal_token', data.token);
       setSuccessMessage('Faculty login verified successfully.');
       setTimeout(() => {
         onAuthenticated(data.profile, data.progress);
@@ -345,7 +342,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       setStoredToken(data.token);
-      localStorage.setItem('dept_portal_token', data.token);
       setAdminInitialized(true);
       setSuccessMessage('Administrator initialized and saved to database! First-time setup is now permanently locked.');
       setTimeout(() => {
@@ -386,7 +382,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       setStoredToken(data.token);
-      localStorage.setItem('dept_portal_token', data.token);
       setSuccessMessage('Administrator authenticated successfully.');
       setTimeout(() => {
         onAuthenticated(data.profile, data.progress);

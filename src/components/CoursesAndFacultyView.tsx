@@ -11,7 +11,7 @@ import {
   Lock,
   ShieldAlert,
 } from 'lucide-react';
-import { apiRequest } from '../api';
+import { apiRequest, safeExternalHref } from '../api';
 import type {
   AcademicResource,
   DepartmentCourse,
@@ -43,6 +43,26 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
     currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
   );
 
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedRosterCourseId, setExpandedRosterCourseId] = useState<string | null>(
+    null
+  );
+
+  const [courseCode, setCourseCode] = useState('');
+  const [title, setTitle] = useState('');
+  const [instructorName, setInstructorName] = useState('');
+  const [semester, setSemester] = useState('');
+  const [credits, setCredits] = useState('4');
+  const [schedule, setSchedule] = useState('');
+  const [prerequisites, setPrerequisites] = useState('');
+  const [description, setDescription] = useState('');
+  const [resourceLink, setResourceLink] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   if (!currentUser) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4 text-center space-y-6">
@@ -73,26 +93,6 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
       </div>
     );
   }
-
-  const [searchInput, setSearchInput] = useState('');
-  const [appliedQuery, setAppliedQuery] = useState('');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [expandedRosterCourseId, setExpandedRosterCourseId] = useState<string | null>(
-    null
-  );
-
-  const [courseCode, setCourseCode] = useState('');
-  const [title, setTitle] = useState('');
-  const [instructorName, setInstructorName] = useState('');
-  const [semester, setSemester] = useState('');
-  const [credits, setCredits] = useState('4');
-  const [schedule, setSchedule] = useState('');
-  const [prerequisites, setPrerequisites] = useState('');
-  const [description, setDescription] = useState('');
-  const [resourceLink, setResourceLink] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   const canModifyCourse = (course: DepartmentCourse) => {
     if (!currentUser) return false;
@@ -517,9 +517,9 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {course.resourceLink && (
+                  {safeExternalHref(course.resourceLink) && (
                     <a
-                      href={course.resourceLink}
+                      href={safeExternalHref(course.resourceLink)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 px-3 text-xs font-medium text-slate-700 hover:border-slate-400 whitespace-nowrap"
@@ -869,15 +869,17 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
               <span className="text-slate-500">Curated by {res.authorName}</span>
-              <a
-                href={res.resourceLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 font-semibold text-blue-700 hover:underline whitespace-nowrap"
-              >
-                <span>Open Resource</span>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              {safeExternalHref(res.resourceLink) && (
+                <a
+                  href={safeExternalHref(res.resourceLink)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-semibold text-blue-700 hover:underline whitespace-nowrap"
+                >
+                  <span>Open Resource</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
             </div>
           </article>
         ))}

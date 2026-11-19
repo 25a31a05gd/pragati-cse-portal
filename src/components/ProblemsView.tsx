@@ -10,7 +10,7 @@ import {
   ExternalLink,
   CheckCircle2,
 } from 'lucide-react';
-import { apiRequest } from '../api';
+import { apiRequest, safeExternalHref } from '../api';
 import type { PortalProgress, ProblemStatement, PublicUserProfile } from '../types';
 
 interface ProblemsViewProps {
@@ -558,9 +558,9 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
                                 )}
                               </div>
                               <p className="text-slate-700 leading-relaxed">{resp.message}</p>
-                              {resp.solutionLink && (
+                              {safeExternalHref(resp.solutionLink) && (
                                 <a
-                                  href={resp.solutionLink}
+                                  href={safeExternalHref(resp.solutionLink)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1 font-medium text-blue-700 hover:underline"

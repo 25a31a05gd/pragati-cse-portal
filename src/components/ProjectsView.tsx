@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, ExternalLink, Pencil, Trash2, X } from 'lucide-react';
-import { apiRequest } from '../api';
+import { apiRequest, safeExternalHref } from '../api';
 import type { DepartmentProject, PublicUserProfile } from '../types';
 
 interface ProjectsViewProps {
@@ -427,15 +427,17 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   )}
                 </div>
 
-                <a
-                  href={item.projectLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 py-1.5 px-3 text-xs font-semibold text-slate-800 hover:border-blue-400 hover:text-blue-700 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <span>Visit Project</span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                </a>
+                {safeExternalHref(item.projectLink) && (
+                  <a
+                    href={safeExternalHref(item.projectLink)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 py-1.5 px-3 text-xs font-semibold text-slate-800 hover:border-blue-400 hover:text-blue-700 transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <span>Visit Project</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                )}
               </div>
             </article>
           ))}

@@ -10,7 +10,7 @@ import {
   ExternalLink,
   Users,
 } from 'lucide-react';
-import { apiRequest } from '../api';
+import { apiRequest, safeExternalHref } from '../api';
 import type {
   NavSection,
   PlacementDrive,
@@ -26,6 +26,7 @@ interface PlacementsViewProps {
   onNavigate: (section: NavSection) => void;
   onInspectStudentId: (memberId: string) => void;
   onProgressUpdated: (progress: PortalProgress) => void;
+  onProfileRefresh?: () => Promise<void> | void;
 }
 
 export const PlacementsView: React.FC<PlacementsViewProps> = ({
@@ -36,6 +37,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
   onNavigate,
   onInspectStudentId,
   onProgressUpdated,
+  onProfileRefresh,
 }) => {
   const isStaff = Boolean(
     currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
@@ -200,12 +202,14 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
       });
       onPlacementsChange(placements.map((p) => (p.id === driveId ? res.drive : p)));
       onProgressUpdated(res.progress);
+      await onProfileRefresh?.();
       setActionFeedback({
         driveId,
         type: 'success',
         message: 'Application recorded with your verified CGPA and coding profile metrics.',
       });
     } catch (err) {
+      await onProfileRefresh?.();
       setActionFeedback({
         driveId,
         type: 'error',
@@ -225,21 +229,57 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
       });
     }
     if (c.requireLeetcode) {
+      const statsVerified = Boolean(currentUser.codingStats.leetcodeVerified);
+      const ownerVerified = Boolean(currentUser.codingStats.leetcodeOwnerVerified);
+      const note = !currentUser.codingStats.leetcodeUrl
+        ? 'No profile linked'
+        : !statsVerified
+        ? 'Unverified · Sync in My Profile'
+        : !ownerVerified
+        ? 'Ownership verification required'
+        : `Verified: ${currentUser.codingStats.leetcodeSolved}`;
       checks.push({
-        label: `LeetCode ≥ ${c.minLeetcodeProblems} (You: ${currentUser.codingStats.leetcodeSolved})`,
-        met: currentUser.codingStats.leetcodeSolved >= c.minLeetcodeProblems,
+        label: `LeetCode ≥ ${c.minLeetcodeProblems} (${note})`,
+        met:
+          statsVerified &&
+          ownerVerified &&
+          currentUser.codingStats.leetcodeSolved >= c.minLeetcodeProblems,
       });
     }
     if (c.requireHackerrank) {
+      const statsVerified = Boolean(currentUser.codingStats.hackerrankVerified);
+      const ownerVerified = Boolean(currentUser.codingStats.hackerrankOwnerVerified);
+      const note = !currentUser.codingStats.hackerrankUrl
+        ? 'No profile linked'
+        : !statsVerified
+        ? 'Unverified · Sync in My Profile'
+        : !ownerVerified
+        ? 'Ownership verification required'
+        : `Verified: ${currentUser.codingStats.hackerrankFiveStars}`;
       checks.push({
-        label: `HackerRank 5★ ≥ ${c.minHackerrankFiveStars} (You: ${currentUser.codingStats.hackerrankFiveStars})`,
-        met: currentUser.codingStats.hackerrankFiveStars >= c.minHackerrankFiveStars,
+        label: `HackerRank 5★ ≥ ${c.minHackerrankFiveStars} (${note})`,
+        met:
+          statsVerified &&
+          ownerVerified &&
+          currentUser.codingStats.hackerrankFiveStars >= c.minHackerrankFiveStars,
       });
     }
     if (c.requireGithub) {
+      const statsVerified = Boolean(currentUser.codingStats.githubVerified);
+      const ownerVerified = Boolean(currentUser.codingStats.githubOwnerVerified);
+      const note = !currentUser.codingStats.githubUrl
+        ? 'No profile linked'
+        : !statsVerified
+        ? 'Unverified · Sync in My Profile'
+        : !ownerVerified
+        ? 'Ownership verification required'
+        : `Verified: ${currentUser.codingStats.githubProjects}`;
       checks.push({
-        label: `GitHub Projects ≥ ${c.minGithubProjects} (You: ${currentUser.codingStats.githubProjects})`,
-        met: currentUser.codingStats.githubProjects >= c.minGithubProjects,
+        label: `GitHub Projects ≥ ${c.minGithubProjects} (${note})`,
+        met:
+          statsVerified &&
+          ownerVerified &&
+          currentUser.codingStats.githubProjects >= c.minGithubProjects,
       });
     }
     return {
@@ -699,9 +739,9 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {drive.applyLink && (
+                    {safeExternalHref(drive.applyLink) && (
                       <a
-                        href={drive.applyLink}
+                        href={safeExternalHref(drive.applyLink)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-2 px-3 text-xs font-medium text-slate-700 hover:border-slate-400 whitespace-nowrap"
@@ -785,12 +825,27 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
                                 </td>
                                 <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
                                   {app.leetcodeSolved}
+                                  {!app.leetcodeVerified && (
+                                    <span className="ml-1 font-sans text-[10px] text-slate-400">
+                                      (Unverified)
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-2.5 pr-4 text-right font-mono tabular-nums">
                                   {app.hackerrankFiveStars}
+                                  {!app.hackerrankVerified && (
+                                    <span className="ml-1 font-sans text-[10px] text-slate-400">
+                                      (Unverified)
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-2.5 pl-4 text-right font-mono tabular-nums">
                                   {app.githubProjects}
+                                  {!app.githubVerified && (
+                                    <span className="ml-1 font-sans text-[10px] text-slate-400">
+                                      (Unverified)
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             ))}

@@ -20,12 +20,16 @@ import {
   Building,
   Briefcase,
   X,
+  UserCog,
 } from 'lucide-react';
-import type { PublicUserProfile } from '../types';
+import { getStoredToken } from '../api';
+import type { PortalProgress, PublicUserProfile } from '../types';
 
 interface AdminDashboardViewProps {
   currentUser: PublicUserProfile;
   onLogout: () => void;
+  onFacultyChanged?: () => Promise<void> | void;
+  onProfileUpdated?: (nextProfile: PublicUserProfile, nextProgress: PortalProgress) => void;
 }
 
 const DEPARTMENTS = [
@@ -40,18 +44,25 @@ const DEPARTMENTS = [
 ];
 
 const DESIGNATIONS = [
-  'Assistant Professor',
-  'Associate Professor',
-  'Professor',
   'Professor & Head of Department (HOD)',
+  'Professor',
+  'Associate Professor',
+  'Assistant Professor (Senior Grade)',
+  'Assistant Professor',
   'Senior Assistant Professor',
+  'Visiting Professor / Industry Fellow',
   'Adjunct Professor',
   'Laboratory Mentor',
 ];
 
+const YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   currentUser,
   onLogout,
+  onFacultyChanged,
+  onProfileUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState<'faculty' | 'students' | 'settings'>('faculty');
 
@@ -65,8 +76,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   // Modals
   const [createFacultyOpen, setCreateFacultyOpen] = useState(false);
   const [editFaculty, setEditFaculty] = useState<PublicUserProfile | null>(null);
+  const [editStudent, setEditStudent] = useState<PublicUserProfile | null>(null);
   const [changePasswordTarget, setChangePasswordTarget] = useState<PublicUserProfile | null>(null);
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<PublicUserProfile | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   // Create Faculty Form State (compulsory password)
   const [createForm, setCreateForm] = useState({
@@ -91,8 +104,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     department: '',
     designation: '',
     phone: '',
+    qualification: '',
+    experienceYears: '5',
+    skills: '',
+    bio: '',
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Edit Student Form State
+  const [editStudentForm, setEditStudentForm] = useState({
+    name: '',
+    email: '',
+    department: '',
+    year: '',
+    section: '',
+    phone: '',
+    cgpa: '',
+    skills: '',
+    bio: '',
+    isActive: true,
+  });
+  const [editStudentSubmitting, setEditStudentSubmitting] = useState(false);
+  const [editStudentError, setEditStudentError] = useState<string | null>(null);
 
   // Change Faculty Password Form State
   const [facultyNewPassword, setFacultyNewPassword] = useState('');
@@ -106,6 +140,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [studentSearch, setStudentSearch] = useState('');
   const [loadingStudents, setLoadingStudents] = useState(false);
 
+  // Admin Profile & Bio Form State
+  const [isEditingAdminProfile, setIsEditingAdminProfile] = useState(false);
+  const [adminProfileForm, setAdminProfileForm] = useState({
+    name: currentUser.name,
+    email: currentUser.email,
+    batchOrDesignation: currentUser.batchOrDesignation || 'System Administrator',
+    department: currentUser.department || DEPARTMENTS[0],
+    phone: currentUser.phone || '',
+    skills: currentUser.skills || '',
+    bio: currentUser.bio || '',
+  });
+  const [adminProfileSaving, setAdminProfileSaving] = useState(false);
+  const [adminProfileError, setAdminProfileError] = useState<string | null>(null);
+  const [adminProfileSuccess, setAdminProfileSuccess] = useState<string | null>(null);
+
   // Admin Change Password Form State
   const [adminCurrentPassword, setAdminCurrentPassword] = useState('');
   const [adminNewPassword, setAdminNewPassword] = useState('');
@@ -116,10 +165,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [adminPassError, setAdminPassError] = useState<string | null>(null);
   const [adminPassSuccess, setAdminPassSuccess] = useState<string | null>(null);
 
-  const getAuthToken = () =>
-    localStorage.getItem('cse_dept_portal_token') ||
-    localStorage.getItem('dept_portal_token') ||
-    '';
+  const getAuthToken = () => getStoredToken() || '';
 
   // Load Faculty
   const loadFaculty = async () => {
@@ -163,6 +209,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     loadFaculty();
     loadStudents();
   }, []);
+
+  useEffect(() => {
+    setAdminProfileForm({
+      name: currentUser.name,
+      email: currentUser.email,
+      batchOrDesignation: currentUser.batchOrDesignation || 'System Administrator',
+      department: currentUser.department || 'Computer Science & Engineering (CSE)',
+      phone: currentUser.phone || '',
+      skills: currentUser.skills || '',
+      bio: currentUser.bio || '',
+    });
+  }, [currentUser]);
 
   // Handle Create Faculty
   const handleCreateFaculty = async (e: React.FormEvent) => {
@@ -221,7 +279,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         password: '',
         confirmPassword: '',
       });
-      loadFaculty();
+      await Promise.all([loadFaculty(), Promise.resolve(onFacultyChanged?.())]);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Error creating faculty');
     } finally {
@@ -233,6 +291,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const handleEditFaculty = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editFaculty) return;
+    setEditError(null);
     setEditSubmitting(true);
     try {
       const res = await fetch(`/api/admin/faculty/${editFaculty.id}`, {
@@ -241,19 +300,101 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getAuthToken()}`,
         },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          experienceYears: parseInt(editForm.experienceYears, 10) || 0,
+        }),
       });
+      const d = await res.json();
       if (!res.ok) {
-        const d = await res.json();
         throw new Error(d.error || 'Failed to update faculty');
       }
-      setFacultySuccess(`Updated details for ${editForm.name}`);
+      setFacultySuccess(`Updated details and bio for ${editForm.name}`);
       setEditFaculty(null);
-      loadFaculty();
+      await Promise.all([loadFaculty(), Promise.resolve(onFacultyChanged?.())]);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Update failed');
+      setEditError(err instanceof Error ? err.message : 'Update failed');
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  // Handle Edit Student
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editStudent) return;
+    setEditStudentError(null);
+    setEditStudentSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/students/${editStudent.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({
+          name: editStudentForm.name,
+          email: editStudentForm.email,
+          department: editStudentForm.department,
+          year: editStudentForm.year,
+          section: editStudentForm.section,
+          phone: editStudentForm.phone,
+          cgpa: parseFloat(editStudentForm.cgpa) || 0,
+          skills: editStudentForm.skills,
+          bio: editStudentForm.bio,
+          isActive: editStudentForm.isActive,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update student profile');
+      }
+      setStudentsList((prev) =>
+        prev.map((s) => (s.id === editStudent.id ? data.student : s))
+      );
+      setFacultySuccess(`Updated student profile for ${data.student.name} (${data.student.memberId})`);
+      setEditStudent(null);
+    } catch (err) {
+      setEditStudentError(err instanceof Error ? err.message : 'Failed to update student');
+    } finally {
+      setEditStudentSubmitting(false);
+    }
+  };
+
+  // Handle Save Admin Profile & Personal Bio
+  const handleAdminProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminProfileError(null);
+    setAdminProfileSuccess(null);
+    setAdminProfileSaving(true);
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({
+          name: adminProfileForm.name,
+          email: adminProfileForm.email,
+          batchOrDesignation: adminProfileForm.batchOrDesignation,
+          department: adminProfileForm.department,
+          phone: adminProfileForm.phone,
+          skills: adminProfileForm.skills,
+          bio: adminProfileForm.bio,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update administrator profile');
+      }
+      onProfileUpdated?.(data.profile, data.progress);
+      setIsEditingAdminProfile(false);
+      setAdminProfileSuccess('Administrator profile, name, and personal bio updated successfully.');
+    } catch (err) {
+      setAdminProfileError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setAdminProfileSaving(false);
     }
   };
 
@@ -315,13 +456,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setFacultySuccess(data.message);
       loadFaculty();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Action failed');
+      setFacultyError(err instanceof Error ? err.message : 'Action failed');
     }
   };
 
   // Handle Delete Faculty
   const handleDeleteFaculty = async () => {
-    if (!deleteConfirmTarget) return;
+    if (!deleteConfirmTarget || deleteSubmitting) return;
+    setDeleteSubmitting(true);
     try {
       const res = await fetch(`/api/admin/faculty/${deleteConfirmTarget.id}`, {
         method: 'DELETE',
@@ -331,9 +473,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       if (!res.ok) throw new Error(data.error || 'Failed to delete faculty');
       setFacultySuccess(data.message);
       setDeleteConfirmTarget(null);
-      loadFaculty();
+      await Promise.all([loadFaculty(), Promise.resolve(onFacultyChanged?.())]);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed');
+      setFacultyError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -614,19 +758,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <span>{f.phone}</span>
                       </div>
                     )}
+                    {f.bio && (
+                      <p className="pt-1.5 text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                        {f.bio}
+                      </p>
+                    )}
                   </div>
 
                   {/* Actions */}
                   <div className="mt-5 pt-3.5 border-t border-slate-800/80 flex items-center justify-between gap-1">
                     <button
                       onClick={() => {
+                        setEditError(null);
                         setEditFaculty(f);
                         setEditForm({
                           name: f.name,
                           email: f.email,
-                          department: f.department || '',
-                          designation: (f.batchOrDesignation || '').split(',')[0] || '',
+                          department: f.department || DEPARTMENTS[0],
+                          designation:
+                            f.designation ||
+                            (f.batchOrDesignation || '').split(',')[0]?.trim() ||
+                            DESIGNATIONS[4],
                           phone: f.phone || '',
+                          qualification: f.qualification || '',
+                          experienceYears:
+                            f.experienceYears !== undefined ? String(f.experienceYears) : '5',
+                          skills: f.skills || '',
+                          bio: f.bio || '',
                         });
                       }}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
@@ -711,12 +869,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <th className="py-3.5 px-4 font-semibold">Department</th>
                   <th className="py-3.5 px-4 font-semibold">Year & Section</th>
                   <th className="py-3.5 px-4 font-semibold">Status</th>
+                  <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
                 {filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500">
+                    <td colSpan={7} className="py-8 text-center text-slate-500">
                       No students found matching your criteria.
                     </td>
                   </tr>
@@ -724,16 +883,55 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   filteredStudents.map((s) => (
                     <tr key={s.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-cyan-300">{s.memberId}</td>
-                      <td className="py-3 px-4 font-semibold text-white">{s.name}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-white">{s.name}</div>
+                        {s.bio && (
+                          <div className="text-[11px] text-slate-400 truncate max-w-[220px]">
+                            {s.bio}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-slate-400">{s.email}</td>
                       <td className="py-3 px-4 text-slate-300">{s.department || 'CSE'}</td>
                       <td className="py-3 px-4 text-slate-300">
                         {s.year ? `${s.year} · Sec ${s.section || 'A'}` : s.batchOrDesignation}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                          Active
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                            s.isActive !== false
+                              ? 'bg-emerald-950 text-emerald-400 border-emerald-800/60'
+                              : 'bg-rose-950 text-rose-400 border-rose-800/60'
+                          }`}
+                        >
+                          {s.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditStudentError(null);
+                            setEditStudent(s);
+                            setEditStudentForm({
+                              name: s.name,
+                              email: s.email,
+                              department: s.department || DEPARTMENTS[0],
+                              year: s.year || YEARS[0],
+                              section: s.section || SECTIONS[0],
+                              phone: s.phone || '',
+                              cgpa: s.cgpa ? String(s.cgpa) : '0',
+                              skills: s.skills || '',
+                              bio: s.bio || '',
+                              isActive: s.isActive !== false,
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors"
+                          title="Edit Student Profile & Bio"
+                        >
+                          <Edit2 className="w-3 h-3 text-cyan-400" />
+                          <span>Edit</span>
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -744,9 +942,274 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: ADMIN SETTINGS / CHANGE PASSWORD */}
+      {/* TAB 3: ADMIN SETTINGS / PROFILE & CHANGE PASSWORD */}
       {activeTab === 'settings' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          {/* Administrator Profile & Personal Bio Card (View-first; click Edit option to modify) */}
+          <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <UserCog className="w-5 h-5 text-cyan-400" />
+                  Administrator Profile & Personal Bio
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isEditingAdminProfile
+                    ? 'Select options and update your administrator full name, official title, department, contact details, and personal bio.'
+                    : 'Click "Edit Admin Profile & Bio" to change your name, personal bio, department, or contact details.'}
+                </p>
+              </div>
+
+              {!isEditingAdminProfile ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminProfileError(null);
+                    setAdminProfileSuccess(null);
+                    setIsEditingAdminProfile(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition-colors"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Admin Profile & Bio</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminProfileForm({
+                      name: currentUser.name,
+                      email: currentUser.email,
+                      batchOrDesignation: currentUser.batchOrDesignation || 'System Administrator',
+                      department: currentUser.department || DEPARTMENTS[0],
+                      phone: currentUser.phone || '',
+                      skills: currentUser.skills || '',
+                      bio: currentUser.bio || '',
+                    });
+                    setAdminProfileError(null);
+                    setIsEditingAdminProfile(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Cancel</span>
+                </button>
+              )}
+            </div>
+
+            {adminProfileError && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{adminProfileError}</span>
+              </div>
+            )}
+
+            {adminProfileSuccess && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 text-xs">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>{adminProfileSuccess}</span>
+              </div>
+            )}
+
+            {!isEditingAdminProfile ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 block">Full Name</span>
+                    <span className="mt-1 block text-sm font-semibold text-white">{currentUser.name}</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 block">Administrator Title</span>
+                    <span className="mt-1 block text-sm font-medium text-cyan-300">
+                      {currentUser.batchOrDesignation || 'System Administrator'}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 block">Login Email</span>
+                    <span className="mt-1 block text-sm text-slate-200 truncate">{currentUser.email}</span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 block">Department</span>
+                    <span className="mt-1 block text-sm text-slate-200">
+                      {currentUser.department || DEPARTMENTS[0]}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 block">Phone / Office Ext</span>
+                    <span className="mt-1 block text-sm font-mono text-slate-200">
+                      {currentUser.phone || 'Not set'}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 block">Skills & Responsibilities</span>
+                    <span className="mt-1 block text-sm text-slate-200">
+                      {currentUser.skills || 'Not specified'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <span className="text-xs font-semibold text-cyan-300 block mb-1">Personal Bio</span>
+                  <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                    {currentUser.bio || 'No personal bio added yet. Click "Edit Admin Profile & Bio" above to add one.'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAdminProfileSave} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Full Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={adminProfileForm.name}
+                      onChange={(e) =>
+                        setAdminProfileForm({ ...adminProfileForm, name: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Administrator Title / Designation
+                    </label>
+                    <input
+                      type="text"
+                      value={adminProfileForm.batchOrDesignation}
+                      onChange={(e) =>
+                        setAdminProfileForm({
+                          ...adminProfileForm,
+                          batchOrDesignation: e.target.value,
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Login Email <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={adminProfileForm.email}
+                      onChange={(e) =>
+                        setAdminProfileForm({ ...adminProfileForm, email: e.target.value })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Department
+                    </label>
+                    <select
+                      value={adminProfileForm.department}
+                      onChange={(e) =>
+                        setAdminProfileForm({
+                          ...adminProfileForm,
+                          department: e.target.value,
+                        })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                    >
+                      {!DEPARTMENTS.includes(adminProfileForm.department) &&
+                        adminProfileForm.department && (
+                          <option value={adminProfileForm.department}>
+                            {adminProfileForm.department}
+                          </option>
+                        )}
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Phone / Office Ext
+                    </label>
+                    <input
+                      type="text"
+                      value={adminProfileForm.phone}
+                      onChange={(e) =>
+                        setAdminProfileForm({ ...adminProfileForm, phone: e.target.value })
+                      }
+                      placeholder="e.g. +91 9876543210"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Skills / Responsibilities
+                    </label>
+                    <input
+                      type="text"
+                      value={adminProfileForm.skills}
+                      onChange={(e) =>
+                        setAdminProfileForm({ ...adminProfileForm, skills: e.target.value })
+                      }
+                      placeholder="e.g. Portal Governance, Faculty Coordination"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Personal Bio
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={adminProfileForm.bio}
+                    onChange={(e) =>
+                      setAdminProfileForm({ ...adminProfileForm, bio: e.target.value })
+                    }
+                    placeholder="Write your personal bio, academic background, or department note..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-sm focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminProfileForm({
+                        name: currentUser.name,
+                        email: currentUser.email,
+                        batchOrDesignation: currentUser.batchOrDesignation || 'System Administrator',
+                        department: currentUser.department || DEPARTMENTS[0],
+                        phone: currentUser.phone || '',
+                        skills: currentUser.skills || '',
+                        bio: currentUser.bio || '',
+                      });
+                      setAdminProfileError(null);
+                      setIsEditingAdminProfile(false);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adminProfileSaving}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+                  >
+                    {adminProfileSaving ? 'Saving Profile...' : 'Save Admin Profile & Bio'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Change Password Card */}
           <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
             <div>
@@ -865,6 +1328,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 All credentials are saved using scrypt password hashing with high-entropy cryptographic salts.
               </div>
             </div>
+          </div>
           </div>
         </div>
       )}
@@ -1075,7 +1539,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* MODAL 2: EDIT FACULTY DETAILS */}
       {editFaculty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl space-y-4">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-cyan-400" />
@@ -1086,49 +1550,128 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </button>
             </div>
 
+            {editError && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{editError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleEditFaculty} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Designation</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
                   <input
                     type="text"
                     required
-                    value={editForm.designation}
-                    onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email</label>
                   <input
-                    type="tel"
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Department</label>
+                  <select
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  >
+                    {!DEPARTMENTS.includes(editForm.department) && editForm.department && (
+                      <option value={editForm.department}>{editForm.department}</option>
+                    )}
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Designation</label>
+                  <select
+                    required
+                    value={editForm.designation}
+                    onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  >
+                    {!DESIGNATIONS.includes(editForm.designation) && editForm.designation && (
+                      <option value={editForm.designation}>{editForm.designation}</option>
+                    )}
+                    {DESIGNATIONS.map((desig) => (
+                      <option key={desig} value={desig}>
+                        {desig}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone / Cabin</label>
+                  <input
+                    type="text"
                     value={editForm.phone}
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Qualification</label>
+                  <input
+                    type="text"
+                    value={editForm.qualification}
+                    onChange={(e) => setEditForm({ ...editForm, qualification: e.target.value })}
+                    placeholder="e.g. Ph.D, M.Tech"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Experience (Years)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={editForm.experienceYears}
+                    onChange={(e) => setEditForm({ ...editForm, experienceYears: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Research & Technical Skills</label>
+                <input
+                  type="text"
+                  value={editForm.skills}
+                  onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })}
+                  placeholder="e.g. Distributed Systems, Cloud Computing, AI/ML"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Personal Bio</label>
+                <textarea
+                  rows={3}
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                  placeholder="Academic bio, research areas, or office hours..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
@@ -1145,6 +1688,209 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
                 >
                   {editSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: EDIT STUDENT DETAILS */}
+      {editStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-cyan-400" />
+                Edit Student: {editStudent.name} ({editStudent.memberId})
+              </h3>
+              <button onClick={() => setEditStudent(null)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {editStudentError && (
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{editStudentError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditStudent} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editStudentForm.name}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, name: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={editStudentForm.email}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, email: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Department</label>
+                  <select
+                    value={editStudentForm.department}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, department: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  >
+                    {!DEPARTMENTS.includes(editStudentForm.department) &&
+                      editStudentForm.department && (
+                        <option value={editStudentForm.department}>
+                          {editStudentForm.department}
+                        </option>
+                      )}
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Year</label>
+                  <select
+                    value={editStudentForm.year}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, year: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  >
+                    {!YEARS.includes(editStudentForm.year) && editStudentForm.year && (
+                      <option value={editStudentForm.year}>{editStudentForm.year}</option>
+                    )}
+                    {YEARS.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Section</label>
+                  <select
+                    value={editStudentForm.section}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, section: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  >
+                    {!SECTIONS.includes(editStudentForm.section) &&
+                      editStudentForm.section && (
+                        <option value={editStudentForm.section}>
+                          Section {editStudentForm.section}
+                        </option>
+                      )}
+                    {SECTIONS.map((sec) => (
+                      <option key={sec} value={sec}>
+                        Section {sec}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editStudentForm.phone}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, phone: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">CGPA (0 - 10)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="10"
+                    value={editStudentForm.cgpa}
+                    onChange={(e) =>
+                      setEditStudentForm({ ...editStudentForm, cgpa: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+                <div className="flex items-end pb-1">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editStudentForm.isActive}
+                      onChange={(e) =>
+                        setEditStudentForm({ ...editStudentForm, isActive: e.target.checked })
+                      }
+                      className="rounded border-slate-600 bg-slate-950 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    <span>Account Active</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Technical Skills</label>
+                <input
+                  type="text"
+                  value={editStudentForm.skills}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, skills: e.target.value })
+                  }
+                  placeholder="e.g. C++, Java, TypeScript, SQL"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Personal Bio</label>
+                <textarea
+                  rows={3}
+                  value={editStudentForm.bio}
+                  onChange={(e) =>
+                    setEditStudentForm({ ...editStudentForm, bio: e.target.value })
+                  }
+                  placeholder="Student personal bio, interests, or project focus..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditStudent(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editStudentSubmitting}
+                  className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
+                >
+                  {editStudentSubmitting ? 'Saving...' : 'Save Student Changes'}
                 </button>
               </div>
             </form>
@@ -1252,15 +1998,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <div className="flex items-center gap-2 pt-2">
               <button
                 onClick={() => setDeleteConfirmTarget(null)}
-                className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                disabled={deleteSubmitting}
+                className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteFaculty}
-                className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30"
+                disabled={deleteSubmitting}
+                className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-rose-600/30"
               >
-                Delete Account
+                {deleteSubmitting ? 'Deleting...' : 'Delete Account'}
               </button>
             </div>
           </div>

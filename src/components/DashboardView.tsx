@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { apiRequest } from '../api';
+import showcaseBannerUrl from '../assets/images/cse_dept_showcase_banner_1793583760073.jpg';
 import type {
   NavSection,
   PublicUserProfile,
@@ -32,6 +33,7 @@ import type {
   PlacementDrive,
   DepartmentCourse,
   FacultyMember,
+  PortalPublicCounts,
 } from '../types';
 
 interface DashboardViewProps {
@@ -45,6 +47,7 @@ interface DashboardViewProps {
   placements: PlacementDrive[];
   courses: DepartmentCourse[];
   facultyMembers: FacultyMember[];
+  publicCounts?: PortalPublicCounts;
   onNavigate: (section: NavSection) => void;
   onSpotlightsChange: (next: SpotlightBanner[]) => void;
 }
@@ -60,6 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   placements,
   courses,
   facultyMembers,
+  publicCounts,
   onNavigate,
   onSpotlightsChange,
 }) => {
@@ -71,6 +75,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       (currentUser.role === 'admin' ||
         (currentUser.role === 'faculty' && currentUser.canManageSpotlights))
   );
+  const canModifySpotlight = (item: SpotlightBanner) => {
+    if (!currentUser) return false;
+    if (currentUser.role === 'admin') return true;
+    return canManageSpotlights && item.authorId === currentUser.id;
+  };
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -153,7 +162,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }> = [
     {
       label: 'Hackathon Experiences',
-      count: hackathons.length,
+      count: isOutsider ? (publicCounts?.hackathons ?? hackathons.length) : hackathons.length,
       subtext: isOutsider ? 'Locked · Login to read' : 'Shared event & jury reflections',
       section: 'hackathons',
       isLocked: isOutsider,
@@ -161,7 +170,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Our Projects',
-      count: projects.length,
+      count: isOutsider ? (publicCounts?.projects ?? projects.length) : projects.length,
       subtext: isOutsider ? 'Locked · Login to inspect' : 'Department web & systems builds',
       section: 'projects',
       isLocked: isOutsider,
@@ -169,7 +178,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Interview Experiences',
-      count: interviews.length,
+      count: isOutsider ? (publicCounts?.interviews ?? interviews.length) : interviews.length,
       subtext: isOutsider ? 'Locked · Login to view Qs' : 'Company rounds, questions & tips',
       section: 'interview-experience',
       isLocked: isOutsider,
@@ -177,7 +186,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Problem Statements',
-      count: problems.length,
+      count: isOutsider ? (publicCounts?.problems ?? problems.length) : problems.length,
       subtext: isOutsider ? 'Locked · Login to solve' : `${openProblemsCount} open · ${solvedProblemsCount} solved`,
       section: 'problems',
       isLocked: isOutsider,
@@ -185,7 +194,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Apps & Technologies',
-      count: apps.length,
+      count: isOutsider ? (publicCounts?.apps ?? apps.length) : apps.length,
       subtext: isOutsider ? 'Locked · Login to use' : 'Tools & utilities cataloged',
       section: 'apps',
       isLocked: isOutsider,
@@ -193,7 +202,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Placement Drives',
-      count: placements.length,
+      count: isOutsider ? (publicCounts?.placements ?? placements.length) : placements.length,
       subtext: isOutsider ? 'Locked · Login to apply' : 'Active campus recruitment drives',
       section: 'placements',
       isLocked: isOutsider,
@@ -201,7 +210,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Department Courses',
-      count: courses.length,
+      count: isOutsider ? (publicCounts?.courses ?? courses.length) : courses.length,
       subtext: isOutsider ? 'Locked · Login to enroll' : 'Core & elective offerings',
       section: 'courses',
       isLocked: isOutsider,
@@ -209,7 +218,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
     {
       label: 'Faculty Directory',
-      count: facultyMembers.length,
+      count: isOutsider ? (publicCounts?.facultyMembers ?? facultyMembers.length) : facultyMembers.length,
       subtext: isOutsider ? 'Locked · Login to view' : 'HOD, Professors & Lecturers',
       section: 'faculty',
       isLocked: isOutsider,
@@ -329,21 +338,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Key Department Statistics Ribbon (Striking for Outsiders & Recruiters) */}
-          <div className="grid grid-cols-2 gap-3 shrink-0 w-full lg:w-80">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">₹48.0 LPA</div>
+          <div className="grid grid-cols-2 gap-3 shrink-0 w-full lg:w-[360px]">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
+              <div className="text-xl sm:text-2xl font-extrabold font-mono text-emerald-400 whitespace-nowrap">₹48.0 LPA</div>
               <div className="text-[11px] text-slate-300 mt-1">Highest CTC (Atlassian)</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-amber-300">₹1,50,000</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
+              <div className="text-xl sm:text-2xl font-extrabold font-mono text-amber-300 whitespace-nowrap">₹1,50,000</div>
               <div className="text-[11px] text-slate-300 mt-1">1st Prize Hackathon</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-blue-300">98.6%</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
+              <div className="text-xl sm:text-2xl font-extrabold font-mono text-blue-300 whitespace-nowrap">98.6%</div>
               <div className="text-[11px] text-slate-300 mt-1">Placement Rate</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs">
-              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-indigo-300">Top 50</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm shadow-xs flex flex-col items-center justify-center min-h-[96px]">
+              <div className="text-xl sm:text-2xl font-extrabold font-mono text-indigo-300 whitespace-nowrap">Top 50</div>
               <div className="text-[11px] text-slate-300 mt-1">NIRF Engineering</div>
             </div>
           </div>
@@ -418,24 +427,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
           {summaryCounters.map((item) => (
             <button
               key={item.section}
               type="button"
               onClick={() => onNavigate(item.section)}
-              className={`group text-left rounded-2xl border bg-white p-5 transition-all hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden ${
+              className={`group h-full flex flex-col justify-between text-left rounded-2xl border bg-white p-5 transition-all hover:shadow-md hover:-translate-y-0.5 relative overflow-hidden ${
                 item.isLocked
                   ? 'border-amber-200/80 bg-amber-50/15 hover:border-amber-300'
                   : 'border-slate-200 hover:border-blue-400'
               }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 w-full">
                 <span className="text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors">
                   {item.label}
                 </span>
                 {item.isLocked && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200 shrink-0">
                     <Lock className="w-3 h-3 text-amber-600" />
                     <span>Locked</span>
                   </span>
@@ -448,7 +457,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               </div>
 
-              <div className="mt-2 text-xs text-slate-500 truncate">{item.subtext}</div>
+              <div className="mt-2 text-xs text-slate-500 truncate w-full">{item.subtext}</div>
             </button>
           ))}
         </div>
@@ -614,7 +623,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="lg:col-span-5 relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 min-h-[280px] flex flex-col justify-end shadow-lg">
             {!imgError ? (
               <img
-                src="/src/assets/images/cse_dept_showcase_banner_1793583760073.jpg"
+                src={showcaseBannerUrl}
                 alt="Computer Science and Engineering Innovation Laboratory"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
@@ -706,7 +715,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         </h3>
                       </div>
 
-                      {canManageSpotlights && (
+                      {canModifySpotlight(spot) && (
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
@@ -758,32 +767,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2">
-            <div className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-              Lab 01 · High-Performance Computing
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2 h-full flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-blue-700 uppercase tracking-wider">
+                Lab 01 · High-Performance Computing
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Distributed Systems & Cloud Hub</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">Distributed Systems & Cloud Hub</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               Equipped with 64-node cluster servers for parallel processing, Linux namespace sandboxes, and distributed consensus research.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2">
-            <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
-              Lab 02 · Artificial Intelligence
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2 h-full flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                Lab 02 · Artificial Intelligence
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">AI, Vision & Language Models Lab</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">AI, Vision & Language Models Lab</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               GPU-accelerated neural network training suites with dedicated workstations for deep learning and medical imaging research.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2">
-            <div className="text-xs font-bold text-teal-700 uppercase tracking-wider">
-              Lab 03 · Network Security
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5 space-y-2 h-full flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-teal-700 uppercase tracking-wider">
+                Lab 03 · Network Security
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Cybersecurity & Cryptography Center</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-900">Cybersecurity & Cryptography Center</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
               Isolated sandboxed network testbed for intrusion detection simulation, cryptographic protocols, and secure routing experiments.
             </p>

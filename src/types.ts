@@ -22,12 +22,21 @@ export interface CodingStats {
   leetcodeEasy: number;
   leetcodeMedium: number;
   leetcodeHard: number;
+  leetcodeVerified?: boolean;
+  leetcodeVerifiedAt?: string | null;
+  leetcodeOwnerVerified?: boolean;
   hackerrankUrl: string;
   hackerrankUsername: string;
   hackerrankFiveStars: number;
+  hackerrankVerified?: boolean;
+  hackerrankVerifiedAt?: string | null;
+  hackerrankOwnerVerified?: boolean;
   githubUrl: string;
   githubUsername: string;
   githubProjects: number;
+  githubVerified?: boolean;
+  githubVerifiedAt?: string | null;
+  githubOwnerVerified?: boolean;
   lastSyncedAt?: string;
 }
 
@@ -39,6 +48,10 @@ export interface PublicUserProfile {
   role: UserRole;
   batchOrDesignation: string;
   department?: string;
+  designation?: string;
+  specialization?: string;
+  qualification?: string;
+  experienceYears?: number;
   year?: string;
   section?: string;
   phone?: string;
@@ -215,8 +228,11 @@ export interface PlacementApplicant {
   studentEmail: string;
   cgpa: number;
   leetcodeSolved: number;
+  leetcodeVerified?: boolean;
   hackerrankFiveStars: number;
+  hackerrankVerified?: boolean;
   githubProjects: number;
+  githubVerified?: boolean;
   resumeLink: string;
   appliedAt: string;
 }
@@ -263,6 +279,7 @@ export interface DepartmentCourse {
 
 export interface FacultyMember {
   id: string;
+  linkedUserId?: string | null;
   name: string;
   designation: string; // e.g. "Professor & Head of Department (HOD)", "Professor", "Associate Professor", "Assistant Professor"
   specialization: string; // e.g. "Distributed Systems, Cloud Architecture, Fault-Tolerant Computing"
@@ -319,6 +336,17 @@ export interface PortalNotification {
   createdAt: string;
 }
 
+export interface PortalPublicCounts {
+  hackathons: number;
+  projects: number;
+  interviews: number;
+  problems: number;
+  apps: number;
+  placements: number;
+  courses: number;
+  facultyMembers: number;
+}
+
 export interface PortalBootstrapPayload {
   spotlights: SpotlightBanner[];
   hackathons: HackathonExperience[];
@@ -332,4 +360,5 @@ export interface PortalBootstrapPayload {
   resources: AcademicResource[];
   notifications: PortalNotification[];
   personalReminders?: PortalReminderItem[];
+  publicCounts?: PortalPublicCounts;
 }

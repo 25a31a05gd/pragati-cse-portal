@@ -45,3 +45,21 @@ export async function apiRequest<T>(
   }
   return data as T;
 }
+
+export function safeExternalHref(raw: string | null | undefined): string | undefined {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return undefined;
+
+  const hasScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed);
+  const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
