@@ -12,6 +12,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type {
   AcademicResource,
   DepartmentCourse,
@@ -39,8 +40,11 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
   onInspectStudentId,
   onProgressUpdated,
 }) => {
+  const canAdminManageAcademic =
+    hasAdminModulePermission(currentUser, 'faculty') ||
+    hasAdminModulePermission(currentUser, 'dashboard_analytics');
   const isStaff = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser && (currentUser.role === 'faculty' || canAdminManageAcademic)
   );
 
   const [searchInput, setSearchInput] = useState('');
@@ -96,7 +100,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
 
   const canModifyCourse = (course: DepartmentCourse) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (canAdminManageAcademic) return true;
     return currentUser.role === 'faculty' && course.authorId === currentUser.id;
   };
 
@@ -650,8 +654,11 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
   resources,
   onResourcesChange,
 }) => {
+  const canAdminManageResources =
+    hasAdminModulePermission(currentUser, 'faculty') ||
+    hasAdminModulePermission(currentUser, 'dashboard_analytics');
   const isStaff = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser && (currentUser.role === 'faculty' || canAdminManageResources)
   );
   const [searchInput, setSearchInput] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -880,7 +887,7 @@ export const ResourcesView: React.FC<ResourcesViewProps> = ({
                   <span>{res.subjectOrLab}</span>
                 </div>
                 {currentUser &&
-                  (currentUser.role === 'admin' || currentUser.id === res.authorId) && (
+                  (canAdminManageResources || currentUser.id === res.authorId) && (
                     <button
                       type="button"
                       onClick={() => handleDelete(res.id)}

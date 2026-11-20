@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { apiRequest } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type { FacultyMember, PublicUserProfile } from '../types';
 
 interface FacultyViewProps {
@@ -42,8 +43,9 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
   onProfileRefresh,
 }) => {
   const isStudent = currentUser?.role === 'student';
+  const canAdminFaculty = hasAdminModulePermission(currentUser, 'faculty');
   const canCreate = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser && (currentUser.role === 'faculty' || canAdminFaculty)
   );
 
   const [searchInput, setSearchInput] = useState('');
@@ -67,7 +69,7 @@ export const FacultyView: React.FC<FacultyViewProps> = ({
 
   const canModifyFaculty = (item: FacultyMember) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (canAdminFaculty) return true;
     if (currentUser.role !== 'faculty') return false;
     return item.linkedUserId
       ? item.linkedUserId === currentUser.id

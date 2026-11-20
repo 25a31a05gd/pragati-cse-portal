@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, ExternalLink, Pencil, Trash2, X } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type { DepartmentProject, PublicUserProfile } from '../types';
 
 interface ProjectsViewProps {
@@ -45,12 +46,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   const canModifyEntry = (entry: DepartmentProject) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (hasAdminModulePermission(currentUser, 'dashboard_analytics')) return true;
     return entry.authorId === currentUser.id;
   };
 
   const canSeeFullStudentDetails = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser &&
+      (currentUser.role === 'faculty' ||
+        hasAdminModulePermission(currentUser, 'students') ||
+        hasAdminModulePermission(currentUser, 'dashboard_analytics'))
   );
 
   const handlePlusClick = () => {

@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { getAssignedAdminModules, isSuperAdminUser } from '../utils/adminPermissions';
 import type {
   NavSection,
   PortalNotification,
@@ -411,7 +412,13 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 font-semibold text-cyan-300 capitalize">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    <span>{profile.role} Account</span>
+                    <span>
+                      {profile.role === 'admin'
+                        ? isSuperAdminUser(profile)
+                          ? 'Super Admin'
+                          : profile.adminRoleLabel || 'Sub-Admin'
+                        : `${profile.role} Account`}
+                    </span>
                   </span>
                   <button
                     type="button"
@@ -1223,9 +1230,23 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
                 <div className="flex items-start gap-3">
                   <ShieldCheck className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-slate-500">Administrative Title</div>
+                    <div className="text-slate-500">Administrative Role & Scope</div>
                     <div className="mt-0.5 font-medium text-slate-900">
-                      {profile.batchOrDesignation || 'System Administrator'}
+                      {isSuperAdminUser(profile)
+                        ? 'Super Administrator (Unrestricted Authority)'
+                        : profile.adminRoleLabel || profile.batchOrDesignation || 'Sub-Administrator'}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {getAssignedAdminModules(profile.adminPermissions, isSuperAdminUser(profile)).map(
+                        (modLabel) => (
+                          <span
+                            key={modLabel}
+                            className="inline-block rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-700"
+                          >
+                            {modLabel}
+                          </span>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>

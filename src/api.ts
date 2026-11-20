@@ -3,17 +3,61 @@ const REQUEST_TIMEOUT_MS = 25000;
 
 function normalizeApiBaseUrl(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  const trimmed = raw.trim().replace(/\/+$/, '');
+  const trimmed = raw.trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, '');
   if (!trimmed) return '';
   try {
     const parsed = new URL(trimmed);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return `${parsed.origin}${parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '')}`;
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
     }
+
+    if (typeof window !== 'undefined') {
+      const currentOrigin = window.location.origin.toLowerCase();
+      const currentHost = window.location.hostname.toLowerCase();
+      const targetHost = parsed.hostname.toLowerCase();
+
+      // Same-origin URL should use relative /api/... requests
+      if (parsed.origin.toLowerCase() === currentOrigin) {
+        return '';
+      }
+
+      // In AI Studio preview (*.run.app), ignore misconfigured *.vercel.app URLs
+      // so the app uses its own same-origin Express backend.
+      if (currentHost.endsWith('.run.app') && targetHost.endsWith('.vercel.app')) {
+        return '';
+      }
+
+      // On Vercel deployments, ignore stale cross-deployment *.vercel.app preview URLs
+      // (which trigger Vercel SSO 302 redirects and CORS failures).
+      if (
+        currentHost.endsWith('.vercel.app') &&
+        targetHost.endsWith('.vercel.app') &&
+        targetHost !== currentHost
+      ) {
+        return '';
+      }
+
+      // Avoid mixed-content errors on HTTPS pages
+      if (
+        window.location.protocol === 'https:' &&
+        parsed.protocol === 'http:' &&
+        targetHost !== 'localhost' &&
+        targetHost !== '127.0.0.1'
+      ) {
+        parsed.protocol = 'https:';
+      }
+    }
+
+    let pathname = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
+    if (pathname === '/api') {
+      pathname = '';
+    } else if (pathname.endsWith('/api')) {
+      pathname = pathname.slice(0, -4);
+    }
+    return `${parsed.origin}${pathname}`;
   } catch {
     return '';
   }
-  return '';
 }
 
 export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
@@ -61,9 +105,18 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getStoredToken();
+  const providedHeaders = (options.headers as Record<string, string> | undefined) ?? {};
+  const hasContentType = Object.keys(providedHeaders).some(
+    (k) => k.toLowerCase() === 'content-type'
+  );
+  const hasBody = options.body !== undefined && options.body !== null;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> | undefined),
+    ...(hasBody && !isFormData && !hasContentType
+      ? { 'Content-Type': 'application/json' }
+      : {}),
+    ...providedHeaders,
   };
 
   if (token) {
@@ -119,6 +172,7 @@ export async function apiRequest<T>(
     }
   }
 
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const serverError =
@@ -126,6 +180,12 @@ export async function apiRequest<T>(
         ? (data as { error: string }).error
         : '';
     throw new ApiError(serverError || `Request failed (${response.status})`, response.status);
+  }
+  if (data === null && contentType.includes('text/html')) {
+    throw new ApiError(
+      'Backend API route returned HTML instead of JSON. Please check VITE_API_BASE_URL and backend routing.',
+      502
+    );
   }
   return (data ?? {}) as T;
 }

@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type {
   NavSection,
   PlacementDrive,
@@ -39,8 +40,9 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
   onProgressUpdated,
   onProfileRefresh,
 }) => {
+  const canAdminPlacements = hasAdminModulePermission(currentUser, 'placements');
   const isStaff = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser && (currentUser.role === 'faculty' || canAdminPlacements)
   );
 
   const [searchInput, setSearchInput] = useState('');
@@ -79,7 +81,7 @@ export const PlacementsView: React.FC<PlacementsViewProps> = ({
 
   const canModifyDrive = (drive: PlacementDrive) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (canAdminPlacements) return true;
     return currentUser.role === 'faculty' && drive.authorId === currentUser.id;
   };
 

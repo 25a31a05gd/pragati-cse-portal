@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Search, ExternalLink, Pencil, X, ShieldCheck } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type { PublicUserProfile, StudentDirectoryDetail } from '../types';
 
 interface StudentSearchViewProps {
@@ -35,7 +36,11 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
   const [loading, setLoading] = useState(true);
 
   const canStaffEdit =
-    currentUser?.role === 'faculty' || currentUser?.role === 'admin';
+    currentUser?.role === 'faculty' ||
+    hasAdminModulePermission(currentUser, 'students');
+  const canVerifyCodingOwner =
+    currentUser?.role === 'faculty' ||
+    hasAdminModulePermission(currentUser, 'coding_verification');
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -412,7 +417,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
-                      {canStaffEdit && selectedStudent.profile.codingStats.leetcodeUsername && (
+                      {canVerifyCodingOwner && selectedStudent.profile.codingStats.leetcodeUsername && (
                         <button
                           type="button"
                           onClick={() =>
@@ -482,7 +487,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
-                      {canStaffEdit && selectedStudent.profile.codingStats.hackerrankUsername && (
+                      {canVerifyCodingOwner && selectedStudent.profile.codingStats.hackerrankUsername && (
                         <button
                           type="button"
                           onClick={() =>
@@ -552,7 +557,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                             <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
-                      {canStaffEdit && selectedStudent.profile.codingStats.githubUsername && (
+                      {canVerifyCodingOwner && selectedStudent.profile.codingStats.githubUsername && (
                         <button
                           type="button"
                           onClick={() =>

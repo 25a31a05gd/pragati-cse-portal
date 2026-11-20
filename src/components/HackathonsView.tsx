@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
 import { apiRequest } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type { HackathonExperience, PublicUserProfile } from '../types';
 
 interface HackathonsViewProps {
@@ -37,12 +38,15 @@ export const HackathonsView: React.FC<HackathonsViewProps> = ({
 
   const canModifyEntry = (entry: HackathonExperience) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (hasAdminModulePermission(currentUser, 'dashboard_analytics')) return true;
     return entry.authorId === currentUser.id;
   };
 
   const canSeeFullStudentDetails = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser &&
+      (currentUser.role === 'faculty' ||
+        hasAdminModulePermission(currentUser, 'students') ||
+        hasAdminModulePermission(currentUser, 'dashboard_analytics'))
   );
 
   const handlePlusClick = () => {

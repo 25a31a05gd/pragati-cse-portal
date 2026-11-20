@@ -157,6 +157,15 @@ export const adminProfiles = pgTable('admin_profiles', {
     .references(() => users.id, { onDelete: 'cascade' }),
   title: varchar('title', { length: 160 }).notNull().default('College Portal Administrator'),
   createdBySystemSetup: boolean('created_by_system_setup').notNull().default(true),
+  isSuperAdmin: boolean('is_super_admin').notNull().default(false),
+  adminRoleLabel: varchar('admin_role_label', { length: 120 }).notNull().default('Department Admin'),
+  permStudents: boolean('perm_students').notNull().default(false),
+  permFaculty: boolean('perm_faculty').notNull().default(false),
+  permPlacements: boolean('perm_placements').notNull().default(false),
+  permCodingVerification: boolean('perm_coding_verification').notNull().default(false),
+  permDashboardAnalytics: boolean('perm_dashboard_analytics').notNull().default(false),
+  canCreateAdmins: boolean('can_create_admins').notNull().default(false),
+  createdByAdminId: uuid('created_by_admin_id').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

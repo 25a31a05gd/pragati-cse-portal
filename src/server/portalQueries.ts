@@ -3,6 +3,9 @@ import { type AppDatabase, schema } from '../db/index';
 import { isWithinVerificationTtl } from './codingStats';
 import type {
   AcademicResource,
+  AdminAnalyticsSummary,
+  AdminModulePermission,
+  AdminPermissions,
   AppTechnology,
   CodingStats,
   CourseEnrollment,
@@ -59,6 +62,95 @@ export function createDefaultCodingStats(): CodingStats {
   };
 }
 
+export function getNormalizedInitialAdminEmail(): string {
+  return (process.env.INITIAL_ADMIN_EMAIL || '')
+    .replace(/^['"]+|['"]+$/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+export function isSuperAdminRecord(record: HydratedUserRecord | null | undefined): boolean {
+  if (!record || record.user.role !== 'admin') return false;
+  if (record.adminProfile?.isSuperAdmin) return true;
+  if (
+    record.adminProfile?.createdBySystemSetup === true &&
+    !record.adminProfile?.createdByAdminId
+  ) {
+    return true;
+  }
+  const initialAdminEmail = getNormalizedInitialAdminEmail();
+  if (
+    initialAdminEmail &&
+    record.user.email.trim().toLowerCase() === initialAdminEmail &&
+    !record.adminProfile?.createdByAdminId
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function resolveAdminPermissions(
+  record: HydratedUserRecord | null | undefined
+): AdminPermissions {
+  if (!record || record.user.role !== 'admin') {
+    return {
+      students: false,
+      faculty: false,
+      placements: false,
+      codingVerification: false,
+      dashboardAnalytics: false,
+      canCreateAdmins: false,
+    };
+  }
+  if (isSuperAdminRecord(record)) {
+    return {
+      students: true,
+      faculty: true,
+      placements: true,
+      codingVerification: true,
+      dashboardAnalytics: true,
+      canCreateAdmins: true,
+    };
+  }
+  const ap = record.adminProfile;
+  return {
+    students: Boolean(ap?.permStudents),
+    faculty: Boolean(ap?.permFaculty),
+    placements: Boolean(ap?.permPlacements),
+    codingVerification: Boolean(ap?.permCodingVerification),
+    dashboardAnalytics: Boolean(ap?.permDashboardAnalytics),
+    canCreateAdmins: Boolean(ap?.canCreateAdmins),
+  };
+}
+
+export function hasAdminRecordPermission(
+  record: HydratedUserRecord | null | undefined,
+  module: AdminModulePermission
+): boolean {
+  if (!record || record.user.role !== 'admin') return false;
+  if (isSuperAdminRecord(record)) return true;
+  const perms = resolveAdminPermissions(record);
+  switch (module) {
+    case 'students':
+      return perms.students;
+    case 'faculty':
+      return perms.faculty;
+    case 'placements':
+      return perms.placements;
+    case 'coding_verification':
+      return perms.codingVerification;
+    case 'dashboard_analytics':
+      return perms.dashboardAnalytics;
+  }
+}
+
+export function canManageAdminsRecord(
+  record: HydratedUserRecord | null | undefined
+): boolean {
+  if (!record || record.user.role !== 'admin') return false;
+  return isSuperAdminRecord(record) || Boolean(record.adminProfile?.canCreateAdmins);
+}
+
 export function toPublicProfile(
   record: HydratedUserRecord,
   options: { includePhone?: boolean } = {}
@@ -70,6 +162,9 @@ export function toPublicProfile(
   const resolvedPhone = user.phone || fp?.phoneOrCabin || '';
 
   const nowMs = Date.now();
+  const superAdminFlag = user.role === 'admin' ? isSuperAdminRecord(record) : false;
+  const adminPermissions =
+    user.role === 'admin' ? resolveAdminPermissions(record) : undefined;
 
   return {
     id: user.id,
@@ -91,13 +186,26 @@ export function toPublicProfile(
           designation: ap.title,
         }
       : {}),
+    ...(user.role === 'admin'
+      ? {
+          isSuperAdmin: superAdminFlag,
+          adminRoleLabel:
+            ap?.adminRoleLabel ||
+            (superAdminFlag ? 'Super Administrator' : 'Department Admin'),
+          adminPermissions,
+          createdByAdminId: ap?.createdByAdminId ?? null,
+        }
+      : {}),
     ...(sp ? { year: sp.year, section: sp.section } : {}),
     ...(options.includePhone ? { phone: resolvedPhone } : {}),
     isActive: user.isActive,
     cgpa: sp ? Number(sp.cgpa) : 0,
     bio: user.bio,
     skills: user.skills,
-    canManageSpotlights: user.canManageSpotlights,
+    canManageSpotlights:
+      user.role === 'admin'
+        ? Boolean(superAdminFlag || adminPermissions?.dashboardAnalytics)
+        : user.canManageSpotlights,
     codingStats: sp
       ? {
           leetcodeUrl: sp.leetcodeUrl,
@@ -130,6 +238,64 @@ export function toPublicProfile(
   };
 }
 
+function isMissingColumnPgError(err: unknown, depth = 0): boolean {
+  if (depth > 5 || !err || typeof err !== 'object') return false;
+  const candidate = err as { code?: unknown; cause?: unknown };
+  if (candidate.code === '42703') return true;
+  return candidate.cause ? isMissingColumnPgError(candidate.cause, depth + 1) : false;
+}
+
+let loggedLegacyAdminSchemaWarning = false;
+
+function buildLegacyAdminProfileFallback(legacy: {
+  userId: string;
+  title: string;
+  createdBySystemSetup: boolean;
+  updatedAt: Date;
+}): typeof schema.adminProfiles.$inferSelect {
+  const isInitial = Boolean(legacy.createdBySystemSetup);
+  return {
+    userId: legacy.userId,
+    title: legacy.title,
+    createdBySystemSetup: legacy.createdBySystemSetup,
+    isSuperAdmin: isInitial,
+    adminRoleLabel: isInitial ? 'Super Administrator' : 'Department Admin',
+    permStudents: isInitial,
+    permFaculty: isInitial,
+    permPlacements: isInitial,
+    permCodingVerification: isInitial,
+    permDashboardAnalytics: isInitial,
+    canCreateAdmins: isInitial,
+    createdByAdminId: null,
+    updatedAt: legacy.updatedAt,
+  };
+}
+
+export async function getAdminProfilesListSafe(
+  db: AppDatabase
+): Promise<Array<typeof schema.adminProfiles.$inferSelect>> {
+  try {
+    return await db.select().from(schema.adminProfiles);
+  } catch (err) {
+    if (!isMissingColumnPgError(err)) throw err;
+    if (!loggedLegacyAdminSchemaWarning) {
+      loggedLegacyAdminSchemaWarning = true;
+      console.warn(
+        '[Schema Notice] admin_profiles RBAC columns (migration 0003) are not yet applied; using legacy Super Admin fallback.'
+      );
+    }
+    const legacyRows = await db
+      .select({
+        userId: schema.adminProfiles.userId,
+        title: schema.adminProfiles.title,
+        createdBySystemSetup: schema.adminProfiles.createdBySystemSetup,
+        updatedAt: schema.adminProfiles.updatedAt,
+      })
+      .from(schema.adminProfiles);
+    return legacyRows.map(buildLegacyAdminProfileFallback);
+  }
+}
+
 export async function getUserWithProfilesById(
   db: AppDatabase,
   userId: string
@@ -160,14 +326,38 @@ export async function getUserWithProfilesById(
           .limit(1)
       : [undefined];
 
-  const [adminProfile] =
-    userRow.role === 'admin'
-      ? await db
-          .select()
-          .from(schema.adminProfiles)
-          .where(eq(schema.adminProfiles.userId, userId))
-          .limit(1)
-      : [undefined];
+  let adminProfile: typeof schema.adminProfiles.$inferSelect | undefined;
+  if (userRow.role === 'admin') {
+    try {
+      const [row] = await db
+        .select()
+        .from(schema.adminProfiles)
+        .where(eq(schema.adminProfiles.userId, userId))
+        .limit(1);
+      adminProfile = row;
+    } catch (err) {
+      if (!isMissingColumnPgError(err)) throw err;
+      if (!loggedLegacyAdminSchemaWarning) {
+        loggedLegacyAdminSchemaWarning = true;
+        console.warn(
+          '[Schema Notice] admin_profiles RBAC columns (migration 0003) are not yet applied; using legacy Super Admin fallback.'
+        );
+      }
+      const [legacyRow] = await db
+        .select({
+          userId: schema.adminProfiles.userId,
+          title: schema.adminProfiles.title,
+          createdBySystemSetup: schema.adminProfiles.createdBySystemSetup,
+          updatedAt: schema.adminProfiles.updatedAt,
+        })
+        .from(schema.adminProfiles)
+        .where(eq(schema.adminProfiles.userId, userId))
+        .limit(1);
+      if (legacyRow) {
+        adminProfile = buildLegacyAdminProfileFallback(legacyRow);
+      }
+    }
+  }
 
   return {
     user: userRow,
@@ -749,10 +939,13 @@ export async function getProblemById(
 function mapPlacementApplicant(
   app: typeof schema.placementApplications.$inferSelect,
   student: typeof schema.users.$inferSelect,
-  viewer: typeof schema.users.$inferSelect
+  viewer: typeof schema.users.$inferSelect,
+  viewerHasAdminPlacementAccess = true
 ): PlacementApplicant {
   const canSeeDetails =
-    viewer.role === 'admin' || viewer.role === 'faculty' || app.studentId === viewer.id;
+    viewer.role === 'faculty' ||
+    (viewer.role === 'admin' && viewerHasAdminPlacementAccess) ||
+    app.studentId === viewer.id;
 
   if (!canSeeDetails) {
     return {
@@ -791,7 +984,8 @@ function mapPlacementApplicant(
 
 export async function getPlacementDrivesList(
   db: AppDatabase,
-  viewer: typeof schema.users.$inferSelect
+  viewer: typeof schema.users.$inferSelect,
+  options: { viewerHasAdminPlacementAccess?: boolean } = {}
 ): Promise<PlacementDrive[]> {
   const driveRows = await db
     .select({
@@ -816,9 +1010,10 @@ export async function getPlacementDrivesList(
     .orderBy(asc(schema.placementApplications.appliedAt));
 
   const appsByDrive = new Map<string, PlacementApplicant[]>();
+  const adminPlacementAccess = options.viewerHasAdminPlacementAccess ?? true;
   for (const row of applicantRows) {
     const arr = appsByDrive.get(row.app.driveId) ?? [];
-    arr.push(mapPlacementApplicant(row.app, row.student, viewer));
+    arr.push(mapPlacementApplicant(row.app, row.student, viewer, adminPlacementAccess));
     appsByDrive.set(row.app.driveId, arr);
   }
 
@@ -851,7 +1046,8 @@ export async function getPlacementDrivesList(
 export async function getPlacementDriveById(
   db: AppDatabase,
   id: string,
-  viewer: typeof schema.users.$inferSelect
+  viewer: typeof schema.users.$inferSelect,
+  options: { viewerHasAdminPlacementAccess?: boolean } = {}
 ): Promise<PlacementDrive | null> {
   const [r] = await db
     .select({
@@ -875,6 +1071,8 @@ export async function getPlacementDriveById(
     .where(eq(schema.placementApplications.driveId, id))
     .orderBy(asc(schema.placementApplications.appliedAt));
 
+  const adminPlacementAccess = options.viewerHasAdminPlacementAccess ?? true;
+
   return {
     id: r.drive.id,
     companyName: r.drive.companyName,
@@ -895,7 +1093,7 @@ export async function getPlacementDriveById(
       minGithubProjects: r.drive.minGithubProjects,
     },
     applicants: applicantRows.map((row) =>
-      mapPlacementApplicant(row.app, row.student, viewer)
+      mapPlacementApplicant(row.app, row.student, viewer, adminPlacementAccess)
     ),
     authorId: r.drive.authorId ?? '',
     authorName: r.authorName || r.drive.authorNameSnapshot || 'Placement Cell',
@@ -1202,7 +1400,8 @@ export async function getPublicBootstrapPayload(
 
 export async function getAuthenticatedBootstrapPayload(
   db: AppDatabase,
-  viewer: typeof schema.users.$inferSelect
+  viewer: typeof schema.users.$inferSelect,
+  options: { viewerHasAdminPlacementAccess?: boolean } = {}
 ): Promise<PortalBootstrapPayload> {
   const [
     spotlightsList,
@@ -1224,7 +1423,7 @@ export async function getAuthenticatedBootstrapPayload(
     getProjectsList(db),
     getProblemsList(db),
     getAppsList(db),
-    getPlacementDrivesList(db, viewer),
+    getPlacementDrivesList(db, viewer, options),
     getCoursesList(db, viewer),
     getFacultyDirectoryList(db),
     getAcademicResourcesList(db),
@@ -1245,6 +1444,86 @@ export async function getAuthenticatedBootstrapPayload(
     resources: resourcesList,
     notifications: notificationsList,
     personalReminders: remindersList,
+  };
+}
+
+export async function getAdminAnalyticsSummary(
+  db: AppDatabase
+): Promise<AdminAnalyticsSummary> {
+  const [
+    [totalStudentsRow],
+    [activeStudentsRow],
+    [verifiedCodingRow],
+    [totalFacultyRow],
+    [activeFacultyRow],
+    [totalAdminsRow],
+    [activeAdminsRow],
+    [placementsRow],
+    [placementAppsRow],
+    [projectsRow],
+    [hackathonsRow],
+    [interviewsRow],
+    [openProblemsRow],
+    [solvedProblemsRow],
+    [coursesRow],
+    [resourcesRow],
+    [spotlightsRow],
+  ] = await Promise.all([
+    db.select({ value: count() }).from(schema.users).where(eq(schema.users.role, 'student')),
+    db
+      .select({ value: count() })
+      .from(schema.users)
+      .where(and(eq(schema.users.role, 'student'), eq(schema.users.isActive, true))),
+    db
+      .select({ value: count() })
+      .from(schema.studentProfiles)
+      .where(
+        or(
+          sql`${schema.studentProfiles.leetcodeOwnerVerifiedAt} IS NOT NULL`,
+          sql`${schema.studentProfiles.hackerrankOwnerVerifiedAt} IS NOT NULL`,
+          sql`${schema.studentProfiles.githubOwnerVerifiedAt} IS NOT NULL`
+        )
+      ),
+    db.select({ value: count() }).from(schema.users).where(eq(schema.users.role, 'faculty')),
+    db
+      .select({ value: count() })
+      .from(schema.users)
+      .where(and(eq(schema.users.role, 'faculty'), eq(schema.users.isActive, true))),
+    db.select({ value: count() }).from(schema.users).where(eq(schema.users.role, 'admin')),
+    db
+      .select({ value: count() })
+      .from(schema.users)
+      .where(and(eq(schema.users.role, 'admin'), eq(schema.users.isActive, true))),
+    db.select({ value: count() }).from(schema.placementDrives),
+    db.select({ value: count() }).from(schema.placementApplications),
+    db.select({ value: count() }).from(schema.projects),
+    db.select({ value: count() }).from(schema.hackathons),
+    db.select({ value: count() }).from(schema.interviews),
+    db.select({ value: count() }).from(schema.problems).where(eq(schema.problems.status, 'open')),
+    db.select({ value: count() }).from(schema.problems).where(eq(schema.problems.status, 'solved')),
+    db.select({ value: count() }).from(schema.courses),
+    db.select({ value: count() }).from(schema.academicResources),
+    db.select({ value: count() }).from(schema.spotlights),
+  ]);
+
+  return {
+    totalStudents: Number(totalStudentsRow?.value ?? 0),
+    activeStudents: Number(activeStudentsRow?.value ?? 0),
+    verifiedCodingStudents: Number(verifiedCodingRow?.value ?? 0),
+    totalFaculty: Number(totalFacultyRow?.value ?? 0),
+    activeFaculty: Number(activeFacultyRow?.value ?? 0),
+    totalAdmins: Number(totalAdminsRow?.value ?? 0),
+    activeAdmins: Number(activeAdminsRow?.value ?? 0),
+    totalPlacements: Number(placementsRow?.value ?? 0),
+    totalPlacementApplications: Number(placementAppsRow?.value ?? 0),
+    totalProjects: Number(projectsRow?.value ?? 0),
+    totalHackathons: Number(hackathonsRow?.value ?? 0),
+    totalInterviews: Number(interviewsRow?.value ?? 0),
+    openProblems: Number(openProblemsRow?.value ?? 0),
+    solvedProblems: Number(solvedProblemsRow?.value ?? 0),
+    totalCourses: Number(coursesRow?.value ?? 0),
+    totalResources: Number(resourcesRow?.value ?? 0),
+    totalSpotlights: Number(spotlightsRow?.value ?? 0),
   };
 }
 

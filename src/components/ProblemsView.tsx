@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type { PortalProgress, ProblemStatement, PublicUserProfile } from '../types';
 
 interface ProblemsViewProps {
@@ -57,7 +58,7 @@ export const ProblemsView: React.FC<ProblemsViewProps> = ({
 
   const canModifyEntry = (entry: ProblemStatement) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (hasAdminModulePermission(currentUser, 'dashboard_analytics')) return true;
     return entry.authorId === currentUser.id;
   };
 

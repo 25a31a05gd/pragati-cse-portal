@@ -104,7 +104,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoadingAdminStatus(true);
     setAdminStatusError(null);
     try {
-      const data = await apiRequest<{ initialized?: boolean }>('/api/auth/admin-status');
+      const data = await apiRequest<{
+        initialized?: boolean;
+        tokenStatus?: 'none' | 'valid' | 'invalid_or_expired';
+      }>('/api/auth/admin-status');
+      if (data?.tokenStatus === 'invalid_or_expired') {
+        setStoredToken(null);
+      }
       setAdminInitialized(Boolean(data?.initialized));
     } catch (err) {
       setAdminInitialized(null);
@@ -1054,11 +1060,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           <input
                             type="text"
                             required
-                            autoComplete="off"
+                            autoComplete="username"
                             value={adminLoginId}
                             onChange={(e) => setAdminLoginId(e.target.value)}
                             placeholder="Enter Admin ID or Email Address"
-                            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700/80 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400 uppercase font-mono"
+                            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700/80 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400 font-mono"
                           />
                         </div>
                       </div>

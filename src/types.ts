@@ -1,5 +1,41 @@
 export type UserRole = 'student' | 'faculty' | 'admin';
 
+export type AdminModulePermission =
+  | 'students'
+  | 'faculty'
+  | 'placements'
+  | 'coding_verification'
+  | 'dashboard_analytics';
+
+export interface AdminPermissions {
+  students: boolean;
+  faculty: boolean;
+  placements: boolean;
+  codingVerification: boolean;
+  dashboardAnalytics: boolean;
+  canCreateAdmins: boolean;
+}
+
+export interface AdminAnalyticsSummary {
+  totalStudents: number;
+  activeStudents: number;
+  verifiedCodingStudents: number;
+  totalFaculty: number;
+  activeFaculty: number;
+  totalAdmins: number;
+  activeAdmins: number;
+  totalPlacements: number;
+  totalPlacementApplications: number;
+  totalProjects: number;
+  totalHackathons: number;
+  totalInterviews: number;
+  openProblems: number;
+  solvedProblems: number;
+  totalCourses: number;
+  totalResources: number;
+  totalSpotlights: number;
+}
+
 export type NavSection =
   | 'dashboard'
   | 'admin-control'
@@ -60,6 +96,10 @@ export interface PublicUserProfile {
   bio: string;
   skills: string;
   canManageSpotlights: boolean;
+  isSuperAdmin?: boolean;
+  adminRoleLabel?: string;
+  adminPermissions?: AdminPermissions;
+  createdByAdminId?: string | null;
   codingStats: CodingStats;
   createdAt: string;
 }

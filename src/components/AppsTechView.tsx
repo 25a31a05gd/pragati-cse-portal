@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, ExternalLink, Pencil, Trash2, X } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type { AppTechnology, PublicUserProfile } from '../types';
 
 interface AppsTechViewProps {
@@ -45,12 +46,15 @@ export const AppsTechView: React.FC<AppsTechViewProps> = ({
 
   const canModifyEntry = (entry: AppTechnology) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (hasAdminModulePermission(currentUser, 'dashboard_analytics')) return true;
     return entry.authorId === currentUser.id;
   };
 
   const canSeeFullStudentDetails = Boolean(
-    currentUser && (currentUser.role === 'faculty' || currentUser.role === 'admin')
+    currentUser &&
+      (currentUser.role === 'faculty' ||
+        hasAdminModulePermission(currentUser, 'students') ||
+        hasAdminModulePermission(currentUser, 'dashboard_analytics'))
   );
 
   const handlePlusClick = () => {

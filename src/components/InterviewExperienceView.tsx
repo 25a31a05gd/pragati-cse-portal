@@ -15,6 +15,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { apiRequest } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import type {
   InterviewExperience,
   InterviewRoundDetail,
@@ -176,7 +177,12 @@ export const InterviewExperienceView: React.FC<InterviewExperienceViewProps> = (
 
   const canModifyEntry = (entry: InterviewExperience) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (
+      hasAdminModulePermission(currentUser, 'placements') ||
+      hasAdminModulePermission(currentUser, 'dashboard_analytics')
+    ) {
+      return true;
+    }
     return entry.authorId === currentUser.id;
   };
 

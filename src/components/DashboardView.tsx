@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { apiRequest } from '../api';
+import { hasAdminModulePermission } from '../utils/adminPermissions';
 import showcaseBannerUrl from '../assets/images/cse_dept_showcase_banner_1793583760073.jpg';
 import type {
   NavSection,
@@ -70,14 +71,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const isOutsider = !currentUser;
   const isStudent = currentUser?.role === 'student';
   const isStaff = currentUser?.role === 'faculty' || currentUser?.role === 'admin';
+  const canAdminDashboard = hasAdminModulePermission(
+    currentUser,
+    'dashboard_analytics'
+  );
   const canManageSpotlights = Boolean(
     currentUser &&
-      (currentUser.role === 'admin' ||
+      (canAdminDashboard ||
         (currentUser.role === 'faculty' && currentUser.canManageSpotlights))
   );
   const canModifySpotlight = (item: SpotlightBanner) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
+    if (canAdminDashboard) return true;
     return canManageSpotlights && item.authorId === currentUser.id;
   };
 

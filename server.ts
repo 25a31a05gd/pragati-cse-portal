@@ -39,8 +39,11 @@ import {
   type CodingPlatform,
 } from './src/server/codingStats';
 import {
+  canManageAdminsRecord,
   computeUserProgress,
   findUserByIdentifierAndRole,
+  getAdminAnalyticsSummary,
+  getAdminProfilesListSafe,
   getAppById,
   getAuthenticatedBootstrapPayload,
   getCourseById,
@@ -48,6 +51,7 @@ import {
   getInterviewById,
   getInterviewsList,
   getFacultyDirectoryList,
+  getNormalizedInitialAdminEmail,
   getPersonalRemindersForUser,
   getPlacementDriveById,
   getProblemById,
@@ -55,20 +59,26 @@ import {
   getPublicBootstrapPayload,
   getSpotlightById,
   getUserWithProfilesById,
+  hasAdminRecordPermission,
+  isSuperAdminRecord,
   mapFacultyDirectoryRow,
   mapReminderRow,
+  resolveAdminPermissions,
   searchStudentsDirectory,
   toPublicProfile,
   type HydratedUserRecord,
 } from './src/server/portalQueries';
-import type { UserRole } from './src/types';
+import type { AdminModulePermission, UserRole } from './src/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+type AuthTokenStatus = 'none' | 'valid' | 'invalid_or_expired';
+
 interface AuthedRequest extends Request {
   userRecord?: HydratedUserRecord;
   accessToken?: string;
+  authTokenStatus?: AuthTokenStatus;
 }
 
 const uuidSchema = z.string().uuid('Invalid record identifier.');
@@ -369,8 +379,16 @@ async function attachUser(
   _res: Response,
   next: NextFunction
 ): Promise<void> {
+  const rawAuthHeader = req.headers.authorization;
+  if (!rawAuthHeader || !rawAuthHeader.trim()) {
+    req.authTokenStatus = 'none';
+    next();
+    return;
+  }
+
   const token = extractBearerToken(req);
   if (!token) {
+    req.authTokenStatus = 'invalid_or_expired';
     next();
     return;
   }
@@ -378,6 +396,7 @@ async function attachUser(
   try {
     const authUser = await verifySupabaseJwt(token);
     if (!authUser) {
+      req.authTokenStatus = 'invalid_or_expired';
       next();
       return;
     }
@@ -387,9 +406,16 @@ async function attachUser(
     if (record && record.user.isActive) {
       req.userRecord = record;
       req.accessToken = token;
+      req.authTokenStatus = 'valid';
+    } else {
+      req.authTokenStatus = 'invalid_or_expired';
     }
-  } catch {
-    // Unauthenticated fallback when DB or token check fails cleanly
+  } catch (err) {
+    req.authTokenStatus = 'invalid_or_expired';
+    const pgCode = getPgErrorCode(err);
+    if (pgCode) {
+      console.warn('[Auth Middleware] Profile lookup error while verifying bearer token:', pgCode);
+    }
   }
   next();
 }
@@ -397,17 +423,31 @@ async function attachUser(
 function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
   if (!req.userRecord) {
     res.status(401).json({
-      error: 'Please sign in at the top right to perform this action.',
+      error:
+        req.authTokenStatus === 'invalid_or_expired'
+          ? 'Your session has expired or is invalid. Please sign in again.'
+          : 'Please sign in at the top right to perform this action.',
     });
     return;
   }
   next();
 }
 
+const ADMIN_MODULE_LABELS: Record<AdminModulePermission, string> = {
+  students: 'Students',
+  faculty: 'Faculty',
+  placements: 'Placements',
+  coding_verification: 'Coding & Verification',
+  dashboard_analytics: 'Dashboard & Analytics',
+};
+
 function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction): void {
   if (!req.userRecord) {
     res.status(401).json({
-      error: 'Please sign in as Administrator to perform this action.',
+      error:
+        req.authTokenStatus === 'invalid_or_expired'
+          ? 'Your administrator session has expired or is invalid. Please sign in again.'
+          : 'Please sign in as Administrator to perform this action.',
     });
     return;
   }
@@ -419,6 +459,77 @@ function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction): vo
   }
   next();
 }
+
+function requireAdminManagementAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
+  if (!req.userRecord) {
+    res.status(401).json({
+      error:
+        req.authTokenStatus === 'invalid_or_expired'
+          ? 'Your administrator session has expired or is invalid. Please sign in again.'
+          : 'Please sign in as Super Administrator to perform this action.',
+    });
+    return;
+  }
+  if (req.userRecord.user.role !== 'admin') {
+    res.status(403).json({
+      error: 'Access denied: Administrator privileges required.',
+    });
+    return;
+  }
+  if (!canManageAdminsRecord(req.userRecord)) {
+    res.status(403).json({
+      error:
+        'Access denied: Only Super Admin or an explicitly authorized Administrator can manage admin accounts.',
+    });
+    return;
+  }
+  next();
+}
+
+function requireAdminModule(module: AdminModulePermission) {
+  return (req: AuthedRequest, res: Response, next: NextFunction): void => {
+    if (!req.userRecord) {
+      res.status(401).json({
+        error:
+          req.authTokenStatus === 'invalid_or_expired'
+            ? 'Your administrator session has expired or is invalid. Please sign in again.'
+            : 'Please sign in as Administrator to perform this action.',
+      });
+      return;
+    }
+    if (req.userRecord.user.role !== 'admin') {
+      res.status(403).json({
+        error: 'Access denied: Administrator privileges required.',
+      });
+      return;
+    }
+    if (!hasAdminRecordPermission(req.userRecord, module)) {
+      res.status(403).json({
+        error: `Access denied: Requires '${ADMIN_MODULE_LABELS[module]}' administrator permission.`,
+      });
+      return;
+    }
+    next();
+  };
+}
+
+async function generateUniqueAdminMemberId(db: ReturnType<typeof requireDb>): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = `ADM-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    const [existing] = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(sql`upper(${schema.users.memberId}) = upper(${candidate})`)
+      .limit(1);
+    if (!existing) return candidate;
+  }
+  return `ADM-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+}
+
+const TRUSTED_PORTAL_VERCEL_ORIGIN_RE =
+  /^https:\/\/pragati-cse-portal(?:-[a-z0-9-]+)*\.vercel\.app$/i;
+const TRUSTED_AISTUDIO_ORIGIN_RE =
+  /^https:\/\/ais-(?:dev|pre)-[a-z0-9-]+(?:\.[a-z0-9-]+)*\.run\.app$/i;
 
 function getConfiguredCorsEntries(): string[] {
   const raw = [
@@ -432,9 +543,9 @@ function getConfiguredCorsEntries(): string[] {
 
   if (!raw) return [];
   return raw
-    .split(',')
+    .split(/[,\s]+/)
     .map((entry) => entry.trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, ''))
-    .filter((entry) => entry.length > 0 && entry !== 'MY_APP_URL');
+    .filter((entry) => entry.length > 0 && entry !== 'MY_APP_URL' && entry !== '*');
 }
 
 function isAllowedCorsOrigin(origin: string, configuredEntries: string[]): boolean {
@@ -449,6 +560,9 @@ function isAllowedCorsOrigin(origin: string, configuredEntries: string[]): boole
     return false;
   }
 
+  const normalizedOrigin = parsedOrigin.origin.toLowerCase();
+
+  // Development localhost origins
   if (
     process.env.NODE_ENV !== 'production' &&
     (parsedOrigin.hostname === 'localhost' || parsedOrigin.hostname === '127.0.0.1')
@@ -456,13 +570,24 @@ function isAllowedCorsOrigin(origin: string, configuredEntries: string[]): boole
     return true;
   }
 
-  const normalizedOrigin = parsedOrigin.origin.toLowerCase();
-  for (const entry of configuredEntries) {
+  // Project-scoped Vercel production & preview deployments and AI Studio preview sandboxes
+  if (
+    TRUSTED_PORTAL_VERCEL_ORIGIN_RE.test(normalizedOrigin) ||
+    TRUSTED_AISTUDIO_ORIGIN_RE.test(normalizedOrigin)
+  ) {
+    return true;
+  }
+
+  for (const rawEntry of configuredEntries) {
+    const entry = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(rawEntry)
+      ? rawEntry
+      : `https://${rawEntry}`;
+
     if (entry.includes('*')) {
       const escaped = entry
         .toLowerCase()
         .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/\*/g, '[^.]+');
+        .replace(/\*/g, '[a-z0-9-]+');
       if (new RegExp(`^${escaped}$`).test(normalizedOrigin)) {
         return true;
       }
@@ -493,12 +618,17 @@ async function buildExpressApp(): Promise<express.Express> {
   app.set('trust proxy', 1);
   app.use((req: Request, res: Response, next: NextFunction) => {
     const requestOrigin = req.headers.origin;
-    if (requestOrigin && isAllowedCorsOrigin(requestOrigin, configuredCorsEntries)) {
-      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    if (requestOrigin) {
       res.setHeader('Vary', 'Origin');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      res.setHeader('Access-Control-Max-Age', '86400');
+      if (isAllowedCorsOrigin(requestOrigin, configuredCorsEntries)) {
+        res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader(
+          'Access-Control-Allow-Headers',
+          'Content-Type, Authorization, Accept, Cache-Control'
+        );
+        res.setHeader('Access-Control-Max-Age', '86400');
+      }
     }
 
     if (req.method === 'OPTIONS') {
@@ -581,9 +711,7 @@ async function buildExpressApp(): Promise<express.Express> {
       res.setHeader('Cache-Control', 'no-store');
       const dbReadiness = await checkDatabaseReadiness();
       const supabaseConfigured = isSupabaseConfigured();
-      const initialAdminEmailConfigured = Boolean(
-        (process.env.INITIAL_ADMIN_EMAIL || '').replace(/^['"]+|['"]+$/g, '').trim()
-      );
+      const initialAdminEmailConfigured = Boolean(getNormalizedInitialAdminEmail());
       if (process.env.NODE_ENV === 'production') {
         const allReady = dbReadiness.connected && supabaseConfigured;
         res.status(allReady ? 200 : 503).json({
@@ -625,15 +753,21 @@ async function buildExpressApp(): Promise<express.Express> {
         res.json(publicPayload);
         return;
       }
-      const payload = await getAuthenticatedBootstrapPayload(db, req.userRecord.user);
+      const payload = await getAuthenticatedBootstrapPayload(db, req.userRecord.user, {
+        viewerHasAdminPlacementAccess:
+          req.userRecord.user.role === 'admin'
+            ? hasAdminRecordPermission(req.userRecord, 'placements')
+            : true,
+      });
       res.json(payload);
     })
   );
 
-  // 2a. Auth: Check Admin Setup Status (One-Time Creation check)
+  // 2a. Auth: Check Admin Setup Status & Current Caller Admin/SuperAdmin Recognition
   app.get(
     '/api/auth/admin-status',
-    asyncHandler(async (_req: Request, res: Response) => {
+    asyncHandler(async (req: AuthedRequest, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store');
       const db = requireDb();
       const [settings] = await db
         .select()
@@ -641,18 +775,32 @@ async function buildExpressApp(): Promise<express.Express> {
         .where(eq(schema.portalSettings.id, 1))
         .limit(1);
 
-      if (settings?.adminInitialized) {
-        res.json({ initialized: true });
-        return;
+      let adminExists = Boolean(settings?.adminInitialized);
+      if (!adminExists) {
+        const [existingAdmin] = await db
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(eq(schema.users.role, 'admin'))
+          .limit(1);
+        adminExists = Boolean(existingAdmin);
       }
 
-      const [existingAdmin] = await db
-        .select({ id: schema.users.id })
-        .from(schema.users)
-        .where(eq(schema.users.role, 'admin'))
-        .limit(1);
+      const viewer = req.userRecord;
+      const isAdmin = Boolean(viewer && viewer.user.role === 'admin');
+      const isSuperAdmin = Boolean(viewer && isSuperAdminRecord(viewer));
+      const canCreateAdmins = Boolean(viewer && canManageAdminsRecord(viewer));
 
-      res.json({ initialized: Boolean(existingAdmin) });
+      res.json({
+        initialized: adminExists,
+        adminExists,
+        superAdminConfigured: Boolean(getNormalizedInitialAdminEmail()) || adminExists,
+        authenticated: Boolean(viewer),
+        tokenStatus: req.authTokenStatus ?? 'none',
+        role: viewer ? viewer.user.role : null,
+        isAdmin,
+        isSuperAdmin,
+        canCreateAdmins,
+      });
     })
   );
 
@@ -662,10 +810,7 @@ async function buildExpressApp(): Promise<express.Express> {
     asyncHandler(async (req: Request, res: Response) => {
       const db = requireDb();
 
-      const allowedAdminEmail = (process.env.INITIAL_ADMIN_EMAIL || '')
-        .replace(/^['"]+|['"]+$/g, '')
-        .trim()
-        .toLowerCase();
+      const allowedAdminEmail = getNormalizedInitialAdminEmail();
       if (!allowedAdminEmail) {
         res.status(403).json({
           error:
@@ -804,6 +949,15 @@ async function buildExpressApp(): Promise<express.Express> {
             userId: newUserId,
             title: 'University Portal Administrator',
             createdBySystemSetup: true,
+            isSuperAdmin: true,
+            adminRoleLabel: 'Super Administrator',
+            permStudents: true,
+            permFaculty: true,
+            permPlacements: true,
+            permCodingVerification: true,
+            permDashboardAnalytics: true,
+            canCreateAdmins: true,
+            createdByAdminId: null,
           });
 
           await tx
@@ -1142,13 +1296,672 @@ async function buildExpressApp(): Promise<express.Express> {
         return;
       }
 
+      if (authResult.user.id !== userRow.id) {
+        console.error(
+          '[Auth Login] Supabase Auth user ID mismatch for role:',
+          expectedRole
+        );
+        res.status(409).json({
+          error:
+            'Account identity record is out of sync between Authentication and Portal database. Please contact the Super Administrator.',
+        });
+        return;
+      }
+
       const record = await getUserWithProfilesById(db, userRow.id);
+      if (!record) {
+        res.status(404).json({ error: 'User profile record could not be loaded.' });
+        return;
+      }
       const progress = await computeUserProgress(db, userRow.id);
 
       res.json({
         token: authResult.accessToken,
-        profile: toPublicProfile(record!, { includePhone: true }),
+        profile: toPublicProfile(record, { includePhone: true }),
         progress,
+      });
+    })
+  );
+
+  // 3a. Admin Management: Analytics Overview & Multi-Admin Hierarchy
+  app.get(
+    '/api/admin/analytics',
+    requireAdminModule('dashboard_analytics'),
+    asyncHandler(async (_req: AuthedRequest, res: Response) => {
+      const db = requireDb();
+      const analytics = await getAdminAnalyticsSummary(db);
+      res.json({ analytics });
+    })
+  );
+
+  app.get(
+    '/api/admin/admins',
+    requireAdminManagementAuth,
+    asyncHandler(async (_req: AuthedRequest, res: Response) => {
+      const db = requireDb();
+      const adminRows = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.role, 'admin'))
+        .orderBy(desc(schema.users.createdAt));
+
+      const adminProfiles = await getAdminProfilesListSafe(db);
+      const profileMap = new Map(adminProfiles.map((p) => [p.userId, p]));
+
+      const list = adminRows
+        .map((u) =>
+          toPublicProfile(
+            {
+              user: u,
+              studentProfile: null,
+              facultyProfile: null,
+              adminProfile: profileMap.get(u.id) ?? null,
+            },
+            { includePhone: true }
+          )
+        )
+        .sort((a, b) => Number(Boolean(b.isSuperAdmin)) - Number(Boolean(a.isSuperAdmin)));
+
+      res.json({ admins: list });
+    })
+  );
+
+  app.post(
+    '/api/admin/admins',
+    requireAdminManagementAuth,
+    asyncHandler(async (req: AuthedRequest, res: Response) => {
+      const db = requireDb();
+      const actorRecord = req.userRecord!;
+      const actorIsSuperAdmin = isSuperAdminRecord(actorRecord);
+
+      const body = req.body as {
+        name?: unknown;
+        memberId?: unknown;
+        email?: unknown;
+        adminRoleLabel?: unknown;
+        department?: unknown;
+        phone?: unknown;
+        password?: unknown;
+        confirmPassword?: unknown;
+        isSuperAdmin?: unknown;
+        permissions?: {
+          students?: unknown;
+          faculty?: unknown;
+          placements?: unknown;
+          codingVerification?: unknown;
+          dashboardAnalytics?: unknown;
+          canCreateAdmins?: unknown;
+        };
+      };
+
+      if (body.isSuperAdmin === true) {
+        res.status(403).json({
+          error: 'Newly created administrator accounts can never be elevated to Super Admin.',
+        });
+        return;
+      }
+
+      const cleanName = typeof body.name === 'string' ? body.name.trim() : '';
+      const cleanEmail = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const cleanRoleLabel =
+        typeof body.adminRoleLabel === 'string' && body.adminRoleLabel.trim()
+          ? body.adminRoleLabel.trim().slice(0, 120)
+          : 'Department Admin';
+      const cleanDept =
+        typeof body.department === 'string' && body.department.trim()
+          ? body.department.trim()
+          : 'Administration';
+      const cleanPhone = typeof body.phone === 'string' ? body.phone.trim() : '';
+      const cleanPassword = typeof body.password === 'string' ? body.password : '';
+      const cleanConfirm = typeof body.confirmPassword === 'string' ? body.confirmPassword : '';
+      const rawMemberId =
+        typeof body.memberId === 'string' ? body.memberId.trim().toUpperCase() : '';
+
+      if (!cleanName || !cleanEmail || !cleanPassword || !cleanConfirm) {
+        res.status(400).json({
+          error:
+            'Full Name, Email Address, Password, and Confirm Password are all compulsory.',
+        });
+        return;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        res.status(400).json({ error: 'Please enter a valid email address.' });
+        return;
+      }
+      if (cleanPassword.length < 6) {
+        res.status(400).json({
+          error: 'Administrator password must be at least 6 characters in length.',
+        });
+        return;
+      }
+      if (cleanPassword !== cleanConfirm) {
+        res.status(400).json({ error: 'Password and Confirm Password do not match.' });
+        return;
+      }
+
+      const requestedPerms = body.permissions ?? {};
+      const wantsCanCreateAdmins = Boolean(requestedPerms.canCreateAdmins);
+      if (wantsCanCreateAdmins && !actorIsSuperAdmin) {
+        res.status(403).json({
+          error:
+            'Only the Super Admin can authorize another Administrator to create or manage admin accounts.',
+        });
+        return;
+      }
+
+      const permStudents = Boolean(requestedPerms.students);
+      const permFaculty = Boolean(requestedPerms.faculty);
+      const permPlacements = Boolean(requestedPerms.placements);
+      const permCodingVerification = Boolean(requestedPerms.codingVerification);
+      const permDashboardAnalytics = Boolean(requestedPerms.dashboardAnalytics);
+      const canCreateAdmins = actorIsSuperAdmin ? wantsCanCreateAdmins : false;
+
+      if (
+        !permStudents &&
+        !permFaculty &&
+        !permPlacements &&
+        !permCodingVerification &&
+        !permDashboardAnalytics &&
+        !canCreateAdmins
+      ) {
+        res.status(400).json({
+          error: 'Please assign at least one module permission for this Administrator account.',
+        });
+        return;
+      }
+
+      const [dupEmail] = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(sql`lower(${schema.users.email}) = lower(${cleanEmail})`)
+        .limit(1);
+      if (dupEmail) {
+        res.status(409).json({
+          error: 'A user account with this email address already exists.',
+        });
+        return;
+      }
+
+      const cleanMemberId = rawMemberId || (await generateUniqueAdminMemberId(db));
+      if (rawMemberId) {
+        const [dupMember] = await db
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(sql`upper(${schema.users.memberId}) = upper(${cleanMemberId})`)
+          .limit(1);
+        if (dupMember) {
+          res.status(409).json({
+            error: 'A user account with this Admin ID already exists.',
+          });
+          return;
+        }
+      }
+
+      const authResult = await createSupabaseAuthUser({
+        email: cleanEmail,
+        password: cleanPassword,
+        role: 'admin',
+        name: cleanName,
+        memberId: cleanMemberId,
+      });
+
+      if ('error' in authResult) {
+        res.status(authResult.status ?? 400).json({ error: authResult.error });
+        return;
+      }
+
+      const newAdminId = authResult.user.id;
+      try {
+        await db.transaction(async (tx) => {
+          await tx.insert(schema.users).values({
+            id: newAdminId,
+            memberId: cleanMemberId,
+            name: cleanName,
+            email: cleanEmail,
+            role: 'admin',
+            department: cleanDept,
+            phone: cleanPhone,
+            batchOrDesignation: cleanRoleLabel,
+            bio: `${cleanRoleLabel} at Pragati University Portal.`,
+            skills: 'Portal Administration',
+            isActive: true,
+            canManageSpotlights: permDashboardAnalytics,
+          });
+
+          await tx.insert(schema.adminProfiles).values({
+            userId: newAdminId,
+            title: cleanRoleLabel,
+            createdBySystemSetup: false,
+            isSuperAdmin: false,
+            adminRoleLabel: cleanRoleLabel,
+            permStudents,
+            permFaculty,
+            permPlacements,
+            permCodingVerification,
+            permDashboardAnalytics,
+            canCreateAdmins,
+            createdByAdminId: actorRecord.user.id,
+          });
+        });
+      } catch (err) {
+        const authCleanup = await deleteSupabaseAuthUser(newAdminId);
+        if (authCleanup.error && !authCleanup.notFound) {
+          console.error('[Create Admin] Rollback Auth cleanup failed:', newAdminId, authCleanup.error);
+        }
+        if (isUniqueViolation(err)) {
+          res.status(409).json({ error: 'An administrator account with this email or ID already exists.' });
+          return;
+        }
+        throw err;
+      }
+
+      const createdRecord = await getUserWithProfilesById(db, newAdminId);
+      res.status(201).json({
+        ok: true,
+        message: `Administrator account created for ${cleanName} (${cleanMemberId}). They can log in immediately using ${cleanEmail}.`,
+        admin: toPublicProfile(createdRecord!, { includePhone: true }),
+      });
+    })
+  );
+
+  app.put(
+    '/api/admin/admins/:id',
+    requireAdminManagementAuth,
+    asyncHandler(async (req: AuthedRequest, res: Response) => {
+      const id = parseUuidParam(req.params.id);
+      if (!id) {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      const db = requireDb();
+      const actorRecord = req.userRecord!;
+      const actorIsSuperAdmin = isSuperAdminRecord(actorRecord);
+
+      const existing = await getUserWithProfilesById(db, id);
+      if (!existing || existing.user.role !== 'admin') {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      if (isSuperAdminRecord(existing)) {
+        res.status(403).json({
+          error:
+            'Super Admin account is protected and cannot be modified, demoted, or deactivated from Admin Management.',
+        });
+        return;
+      }
+
+      const body = req.body as {
+        name?: unknown;
+        email?: unknown;
+        adminRoleLabel?: unknown;
+        department?: unknown;
+        phone?: unknown;
+        bio?: unknown;
+        isSuperAdmin?: unknown;
+        permissions?: {
+          students?: unknown;
+          faculty?: unknown;
+          placements?: unknown;
+          codingVerification?: unknown;
+          dashboardAnalytics?: unknown;
+          canCreateAdmins?: unknown;
+        };
+      };
+
+      if (body.isSuperAdmin === true) {
+        res.status(403).json({
+          error: 'Super Admin privileges cannot be granted through admin management.',
+        });
+        return;
+      }
+
+      const nextName =
+        typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.user.name;
+      const nextEmail =
+        typeof body.email === 'string' && body.email.trim()
+          ? body.email.trim().toLowerCase()
+          : existing.user.email;
+      const nextRoleLabel =
+        typeof body.adminRoleLabel === 'string' && body.adminRoleLabel.trim()
+          ? body.adminRoleLabel.trim().slice(0, 120)
+          : existing.adminProfile?.adminRoleLabel || 'Department Admin';
+      const nextDept =
+        typeof body.department === 'string' ? body.department.trim() : existing.user.department;
+      const nextPhone = typeof body.phone === 'string' ? body.phone.trim() : existing.user.phone;
+      const nextBio = typeof body.bio === 'string' ? body.bio.trim() : existing.user.bio;
+
+      const currentPerms = resolveAdminPermissions(existing);
+      const nextPerms = {
+        students:
+          body.permissions?.students !== undefined
+            ? Boolean(body.permissions.students)
+            : currentPerms.students,
+        faculty:
+          body.permissions?.faculty !== undefined
+            ? Boolean(body.permissions.faculty)
+            : currentPerms.faculty,
+        placements:
+          body.permissions?.placements !== undefined
+            ? Boolean(body.permissions.placements)
+            : currentPerms.placements,
+        codingVerification:
+          body.permissions?.codingVerification !== undefined
+            ? Boolean(body.permissions.codingVerification)
+            : currentPerms.codingVerification,
+        dashboardAnalytics:
+          body.permissions?.dashboardAnalytics !== undefined
+            ? Boolean(body.permissions.dashboardAnalytics)
+            : currentPerms.dashboardAnalytics,
+        canCreateAdmins: currentPerms.canCreateAdmins,
+      };
+
+      if (body.permissions?.canCreateAdmins !== undefined) {
+        const requestedAdminMgmt = Boolean(body.permissions.canCreateAdmins);
+        if (requestedAdminMgmt !== currentPerms.canCreateAdmins && !actorIsSuperAdmin) {
+          res.status(403).json({
+            error:
+              'Only the Super Admin can grant or revoke Admin Management authorization.',
+          });
+          return;
+        }
+        if (actorIsSuperAdmin) {
+          nextPerms.canCreateAdmins = requestedAdminMgmt;
+        }
+      }
+
+      if (
+        !nextPerms.students &&
+        !nextPerms.faculty &&
+        !nextPerms.placements &&
+        !nextPerms.codingVerification &&
+        !nextPerms.dashboardAnalytics &&
+        !nextPerms.canCreateAdmins
+      ) {
+        res.status(400).json({
+          error: 'An administrator must retain at least one assigned module permission (or deactivate instead).',
+        });
+        return;
+      }
+
+      const emailChanged = nextEmail !== existing.user.email;
+      const nameChanged = nextName !== existing.user.name;
+
+      if (emailChanged) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+          res.status(400).json({ error: 'Please enter a valid email address.' });
+          return;
+        }
+        const [dupEmail] = await db
+          .select({ id: schema.users.id })
+          .from(schema.users)
+          .where(
+            and(
+              sql`lower(${schema.users.email}) = lower(${nextEmail})`,
+              sql`${schema.users.id} <> ${id}`
+            )
+          )
+          .limit(1);
+        if (dupEmail) {
+          res.status(409).json({ error: 'Another user account already uses this email address.' });
+          return;
+        }
+      }
+
+      if (emailChanged || nameChanged) {
+        const authUpdate = await updateSupabaseAuthUser(id, {
+          ...(emailChanged ? { email: nextEmail } : {}),
+          ...(nameChanged ? { name: nextName, memberId: existing.user.memberId } : {}),
+        });
+        if (authUpdate.error) {
+          res.status(400).json({ error: authUpdate.error });
+          return;
+        }
+      }
+
+      try {
+        await db.transaction(async (tx) => {
+          await tx
+            .update(schema.users)
+            .set({
+              name: nextName,
+              email: nextEmail,
+              department: nextDept,
+              phone: nextPhone,
+              bio: nextBio,
+              batchOrDesignation: nextRoleLabel,
+              canManageSpotlights: nextPerms.dashboardAnalytics,
+            })
+            .where(and(eq(schema.users.id, id), eq(schema.users.role, 'admin')));
+
+          await tx
+            .insert(schema.adminProfiles)
+            .values({
+              userId: id,
+              title: nextRoleLabel,
+              createdBySystemSetup: false,
+              isSuperAdmin: false,
+              adminRoleLabel: nextRoleLabel,
+              permStudents: nextPerms.students,
+              permFaculty: nextPerms.faculty,
+              permPlacements: nextPerms.placements,
+              permCodingVerification: nextPerms.codingVerification,
+              permDashboardAnalytics: nextPerms.dashboardAnalytics,
+              canCreateAdmins: nextPerms.canCreateAdmins,
+              createdByAdminId: existing.adminProfile?.createdByAdminId ?? actorRecord.user.id,
+            })
+            .onConflictDoUpdate({
+              target: schema.adminProfiles.userId,
+              set: {
+                title: nextRoleLabel,
+                isSuperAdmin: false,
+                adminRoleLabel: nextRoleLabel,
+                permStudents: nextPerms.students,
+                permFaculty: nextPerms.faculty,
+                permPlacements: nextPerms.placements,
+                permCodingVerification: nextPerms.codingVerification,
+                permDashboardAnalytics: nextPerms.dashboardAnalytics,
+                canCreateAdmins: nextPerms.canCreateAdmins,
+              },
+            });
+        });
+      } catch (err) {
+        if (emailChanged || nameChanged) {
+          await updateSupabaseAuthUser(id, {
+            email: existing.user.email,
+            name: existing.user.name,
+            memberId: existing.user.memberId,
+          });
+        }
+        if (isUniqueViolation(err)) {
+          res.status(409).json({ error: 'Another user account already uses this email address.' });
+          return;
+        }
+        throw err;
+      }
+
+      const updated = await getUserWithProfilesById(db, id);
+      res.json({
+        ok: true,
+        message: `Updated administrator details and permissions for ${nextName}.`,
+        admin: toPublicProfile(updated!, { includePhone: true }),
+      });
+    })
+  );
+
+  app.post(
+    '/api/admin/admins/:id/change-password',
+    requireAdminManagementAuth,
+    asyncHandler(async (req: AuthedRequest, res: Response) => {
+      const id = parseUuidParam(req.params.id);
+      if (!id) {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      const db = requireDb();
+      const target = await getUserWithProfilesById(db, id);
+      if (!target || target.user.role !== 'admin') {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      if (isSuperAdminRecord(target)) {
+        res.status(403).json({
+          error: 'Super Admin password cannot be modified from Admin Management.',
+        });
+        return;
+      }
+
+      const { newPassword, confirmPassword } = req.body as {
+        newPassword?: string;
+        confirmPassword?: string;
+      };
+      const cleanNew = typeof newPassword === 'string' ? newPassword : '';
+      const cleanConfirm = typeof confirmPassword === 'string' ? confirmPassword : '';
+
+      if (!cleanNew || !cleanConfirm) {
+        res.status(400).json({ error: 'Both New Password and Confirm Password are required.' });
+        return;
+      }
+      if (cleanNew.length < 6) {
+        res.status(400).json({ error: 'Password must be at least 6 characters in length.' });
+        return;
+      }
+      if (cleanNew !== cleanConfirm) {
+        res.status(400).json({ error: 'Passwords do not match.' });
+        return;
+      }
+
+      const updated = await updateSupabaseAuthUser(target.user.id, { password: cleanNew });
+      if (updated.error) {
+        res.status(400).json({ error: updated.error });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        message: `Password updated successfully for administrator ${target.user.name}.`,
+      });
+    })
+  );
+
+  app.post(
+    '/api/admin/admins/:id/toggle-status',
+    requireAdminManagementAuth,
+    asyncHandler(async (req: AuthedRequest, res: Response) => {
+      const id = parseUuidParam(req.params.id);
+      if (!id) {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      const actor = req.userRecord!.user;
+      if (id === actor.id) {
+        res.status(400).json({
+          error: 'You cannot deactivate your own active administrator account.',
+        });
+        return;
+      }
+
+      const db = requireDb();
+      const target = await getUserWithProfilesById(db, id);
+      if (!target || target.user.role !== 'admin') {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      if (isSuperAdminRecord(target)) {
+        res.status(403).json({
+          error: 'Super Admin account is protected and cannot be deactivated.',
+        });
+        return;
+      }
+
+      const nextActive = !target.user.isActive;
+      const authRes = await updateSupabaseAuthUser(id, { banned: !nextActive });
+      if (authRes.error) {
+        res.status(400).json({ error: authRes.error });
+        return;
+      }
+
+      await db
+        .update(schema.users)
+        .set({ isActive: nextActive })
+        .where(and(eq(schema.users.id, id), eq(schema.users.role, 'admin')));
+
+      res.json({
+        ok: true,
+        isActive: nextActive,
+        message: `Administrator account for ${target.user.name} has been ${
+          nextActive ? 'activated' : 'deactivated'
+        }.`,
+      });
+    })
+  );
+
+  app.delete(
+    '/api/admin/admins/:id',
+    requireAdminManagementAuth,
+    asyncHandler(async (req: AuthedRequest, res: Response) => {
+      const id = parseUuidParam(req.params.id);
+      if (!id) {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      const actor = req.userRecord!.user;
+      if (id === actor.id) {
+        res.status(400).json({
+          error: 'You cannot delete your own active administrator account.',
+        });
+        return;
+      }
+
+      const db = requireDb();
+      const target = await getUserWithProfilesById(db, id);
+      if (!target || target.user.role !== 'admin') {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      if (isSuperAdminRecord(target)) {
+        res.status(403).json({
+          error: 'Super Admin account is permanently protected and cannot be deleted.',
+        });
+        return;
+      }
+
+      const deletedUser = await db.transaction(async (tx) => {
+        await tx.delete(schema.adminProfiles).where(eq(schema.adminProfiles.userId, id));
+        const [removed] = await tx
+          .delete(schema.users)
+          .where(and(eq(schema.users.id, id), eq(schema.users.role, 'admin')))
+          .returning({ id: schema.users.id, name: schema.users.name });
+        return removed ?? null;
+      });
+
+      if (!deletedUser) {
+        res.status(404).json({ error: 'Administrator account not found.' });
+        return;
+      }
+
+      const authDeleteResult = await deleteSupabaseAuthUser(id);
+      if (authDeleteResult.error && !authDeleteResult.notFound) {
+        console.error('[Admin Delete Admin] Supabase Auth cleanup failed:', id, authDeleteResult.error);
+        res.status(502).json({
+          error: `Portal administrator records for ${deletedUser.name} were removed, but Supabase Auth cleanup failed: ${authDeleteResult.error}`,
+          deletedUserId: deletedUser.id,
+        });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        message: `Administrator account for ${deletedUser.name} has been revoked and removed.`,
+        deletedUserId: deletedUser.id,
       });
     })
   );
@@ -1156,7 +1969,7 @@ async function buildExpressApp(): Promise<express.Express> {
   // 3b. Admin Management: Manage Faculty Endpoints
   app.get(
     '/api/admin/faculty',
-    requireAdmin,
+    requireAdminModule('faculty'),
     asyncHandler(async (_req: AuthedRequest, res: Response) => {
       const db = requireDb();
       const facultyRows = await db
@@ -1186,7 +1999,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.post(
     '/api/admin/faculty',
-    requireAdmin,
+    requireAdminModule('faculty'),
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const db = requireDb();
       const adminUser = req.userRecord!.user;
@@ -1380,7 +2193,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.put(
     '/api/admin/faculty/:id',
-    requireAdmin,
+    requireAdminModule('faculty'),
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const id = parseUuidParam(req.params.id);
       if (!id) {
@@ -1579,7 +2392,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.post(
     '/api/admin/faculty/:id/change-password',
-    requireAdmin,
+    requireAdminModule('faculty'),
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const id = parseUuidParam(req.params.id);
       if (!id) {
@@ -1631,7 +2444,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.post(
     '/api/admin/faculty/:id/toggle-status',
-    requireAdmin,
+    requireAdminModule('faculty'),
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const id = parseUuidParam(req.params.id);
       if (!id) {
@@ -1669,7 +2482,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.delete(
     '/api/admin/faculty/:id',
-    requireAdmin,
+    requireAdminModule('faculty'),
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const id = parseUuidParam(req.params.id);
       if (!id) {
@@ -1751,7 +2564,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.get(
     '/api/admin/students',
-    requireAdmin,
+    requireAdminModule('students'),
     asyncHandler(async (_req: AuthedRequest, res: Response) => {
       const db = requireDb();
       const rows = await db
@@ -1785,6 +2598,12 @@ async function buildExpressApp(): Promise<express.Express> {
     if (actor.role !== 'faculty' && actor.role !== 'admin') {
       res.status(403).json({
         error: 'Only Faculty or Administrator accounts can update student profiles.',
+      });
+      return;
+    }
+    if (actor.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'students')) {
+      res.status(403).json({
+        error: "Access denied: Requires 'Students' administrator permission.",
       });
       return;
     }
@@ -1992,7 +2811,7 @@ async function buildExpressApp(): Promise<express.Express> {
 
   app.put(
     '/api/admin/students/:id',
-    requireAdmin,
+    requireAdminModule('students'),
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       await handleStaffStudentUpdate(req, res);
     })
@@ -2014,6 +2833,15 @@ async function buildExpressApp(): Promise<express.Express> {
       if (actor.role !== 'faculty' && actor.role !== 'admin') {
         res.status(403).json({
           error: 'Only Faculty or Administrator coordinators can verify coding handle ownership.',
+        });
+        return;
+      }
+      if (
+        actor.role === 'admin' &&
+        !hasAdminRecordPermission(req.userRecord, 'coding_verification')
+      ) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Coding & Verification' administrator permission.",
         });
         return;
       }
@@ -2729,6 +3557,9 @@ async function buildExpressApp(): Promise<express.Express> {
               .values({
                 userId: user.id,
                 title: nextBatch || nextDesignation,
+                createdBySystemSetup: Boolean(ap?.createdBySystemSetup),
+                isSuperAdmin: Boolean(ap?.isSuperAdmin),
+                adminRoleLabel: ap?.adminRoleLabel || 'Department Admin',
               })
               .onConflictDoUpdate({
                 target: schema.adminProfiles.userId,
@@ -2980,7 +3811,9 @@ async function buildExpressApp(): Promise<express.Express> {
       const query = String(req.query.q || '');
       const actorRole = req.userRecord!.user.role;
       const results = await searchStudentsDirectory(db, query, {
-        includePhone: actorRole === 'faculty' || actorRole === 'admin',
+        includePhone:
+          actorRole === 'faculty' ||
+          (actorRole === 'admin' && hasAdminRecordPermission(req.userRecord, 'students')),
       });
       res.json({ results });
     })
@@ -3180,10 +4013,14 @@ async function buildExpressApp(): Promise<express.Express> {
     requireAuth,
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const user = req.userRecord!.user;
-      if (user.role !== 'admin' && !(user.role === 'faculty' && user.canManageSpotlights)) {
+      const adminCanManageSpotlights =
+        user.role === 'admin' && hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!adminCanManageSpotlights && !(user.role === 'faculty' && user.canManageSpotlights)) {
         res.status(403).json({
           error:
-            'Only Admin and authorized Faculty coordinators can publish Dashboard Spotlights.',
+            user.role === 'admin'
+              ? "Access denied: Requires 'Dashboard & Analytics' administrator permission."
+              : 'Only authorized Administrators and Faculty coordinators can publish Dashboard Spotlights.',
         });
         return;
       }
@@ -3233,8 +4070,15 @@ async function buildExpressApp(): Promise<express.Express> {
     requireAuth,
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const user = req.userRecord!.user;
-      if (user.role !== 'admin' && !(user.role === 'faculty' && user.canManageSpotlights)) {
-        res.status(403).json({ error: 'Not authorized to edit Dashboard Spotlights.' });
+      const adminCanManageSpotlights =
+        user.role === 'admin' && hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!adminCanManageSpotlights && !(user.role === 'faculty' && user.canManageSpotlights)) {
+        res.status(403).json({
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Dashboard & Analytics' administrator permission."
+              : 'Not authorized to edit Dashboard Spotlights.',
+        });
         return;
       }
 
@@ -3319,8 +4163,15 @@ async function buildExpressApp(): Promise<express.Express> {
     requireAuth,
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const user = req.userRecord!.user;
-      if (user.role !== 'admin' && !(user.role === 'faculty' && user.canManageSpotlights)) {
-        res.status(403).json({ error: 'Not authorized to remove Dashboard Spotlights.' });
+      const adminCanManageSpotlights =
+        user.role === 'admin' && hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!adminCanManageSpotlights && !(user.role === 'faculty' && user.canManageSpotlights)) {
+        res.status(403).json({
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Dashboard & Analytics' administrator permission."
+              : 'Not authorized to remove Dashboard Spotlights.',
+        });
         return;
       }
 
@@ -3448,9 +4299,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Hackathon experience not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original author or Admin can edit this experience.',
+          error: 'Only the original author or authorized Admin can edit this experience.',
         });
         return;
       }
@@ -3533,9 +4387,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original author or Admin can delete this entry.',
+          error: 'Only the original author or authorized Admin can delete this entry.',
         });
         return;
       }
@@ -3735,9 +4592,13 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Interview experience not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'placements') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the author or Admin can edit this interview experience.',
+          error: 'Only the author or authorized Admin can edit this interview experience.',
         });
         return;
       }
@@ -3905,9 +4766,13 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Interview experience not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'placements') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the author or Admin can delete this entry.',
+          error: 'Only the author or authorized Admin can delete this entry.',
         });
         return;
       }
@@ -3996,9 +4861,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Project not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original author or Admin can edit this project.',
+          error: 'Only the original author or authorized Admin can edit this project.',
         });
         return;
       }
@@ -4072,9 +4940,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Project not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original author or Admin can delete this project.',
+          error: 'Only the original author or authorized Admin can delete this project.',
         });
         return;
       }
@@ -4187,9 +5058,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Problem statement not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original author or Admin can edit this problem statement.',
+          error: 'Only the original author or authorized Admin can edit this problem statement.',
         });
         return;
       }
@@ -4270,9 +5144,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Problem statement not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original author or Admin can delete this post.',
+          error: 'Only the original author or authorized Admin can delete this post.',
         });
         return;
       }
@@ -4326,7 +5203,10 @@ async function buildExpressApp(): Promise<express.Express> {
 
       const trimmedMessage = message.trim();
       const solvedFlag = Boolean(marksSolved);
-      const canMarkProblemSolved = user.role === 'admin' || existing.authorId === user.id;
+      const canMarkProblemSolved =
+        (user.role === 'admin' &&
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics')) ||
+        existing.authorId === user.id;
 
       await db.transaction(async (tx) => {
         await tx.insert(schema.problemResponses).values({
@@ -4456,9 +5336,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'App entry not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original uploader or Admin can edit this app.',
+          error: 'Only the original uploader or authorized Admin can edit this app.',
         });
         return;
       }
@@ -4536,9 +5419,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'App entry not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      const canAdminModerate =
+        user.role === 'admin' &&
+        hasAdminRecordPermission(req.userRecord, 'dashboard_analytics');
+      if (!canAdminModerate && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the original uploader or Admin can delete this app.',
+          error: 'Only the original uploader or authorized Admin can delete this app.',
         });
         return;
       }
@@ -4558,6 +5444,12 @@ async function buildExpressApp(): Promise<express.Express> {
       if (user.role !== 'faculty' && user.role !== 'admin') {
         res.status(403).json({
           error: 'Students do not have permission to add Placement Drives.',
+        });
+        return;
+      }
+      if (user.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'placements')) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Placements' administrator permission.",
         });
         return;
       }
@@ -4665,7 +5557,10 @@ async function buildExpressApp(): Promise<express.Express> {
         return inserted.id;
       });
 
-      const item = await getPlacementDriveById(db, createdId, user);
+      const item = await getPlacementDriveById(db, createdId, user, {
+        viewerHasAdminPlacementAccess:
+          user.role === 'admin' ? hasAdminRecordPermission(req.userRecord, 'placements') : true,
+      });
       res.status(201).json(item);
     })
   );
@@ -4677,6 +5572,12 @@ async function buildExpressApp(): Promise<express.Express> {
       const user = req.userRecord!.user;
       if (user.role !== 'faculty' && user.role !== 'admin') {
         res.status(403).json({ error: 'Only Faculty and Admin can modify Placement Drives.' });
+        return;
+      }
+      if (user.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'placements')) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Placements' administrator permission.",
+        });
         return;
       }
 
@@ -4792,7 +5693,9 @@ async function buildExpressApp(): Promise<express.Express> {
         })
         .where(eq(schema.placementDrives.id, id));
 
-      const updated = await getPlacementDriveById(db, id, user);
+      const updated = await getPlacementDriveById(db, id, user, {
+        viewerHasAdminPlacementAccess: true,
+      });
       res.json(updated);
     })
   );
@@ -4804,6 +5707,12 @@ async function buildExpressApp(): Promise<express.Express> {
       const user = req.userRecord!.user;
       if (user.role !== 'faculty' && user.role !== 'admin') {
         res.status(403).json({ error: 'Only Faculty and Admin can delete Placement Drives.' });
+        return;
+      }
+      if (user.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'placements')) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Placements' administrator permission.",
+        });
         return;
       }
 
@@ -5226,9 +6135,16 @@ async function buildExpressApp(): Promise<express.Express> {
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const db = requireDb();
       const user = req.userRecord!.user;
-      if (user.role !== 'faculty' && user.role !== 'admin') {
+      const canAdminManageCourses =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'faculty') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (user.role !== 'faculty' && !canAdminManageCourses) {
         res.status(403).json({
-          error: 'Students do not have permission to create Department Courses.',
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Faculty' or 'Dashboard & Analytics' administrator permission."
+              : 'Students do not have permission to create Department Courses.',
         });
         return;
       }
@@ -5309,8 +6225,17 @@ async function buildExpressApp(): Promise<express.Express> {
     requireAuth,
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const user = req.userRecord!.user;
-      if (user.role !== 'faculty' && user.role !== 'admin') {
-        res.status(403).json({ error: 'Only Faculty and Admin can edit Courses.' });
+      const canAdminManageCourses =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'faculty') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (user.role !== 'faculty' && !canAdminManageCourses) {
+        res.status(403).json({
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Faculty' or 'Dashboard & Analytics' administrator permission."
+              : 'Only Faculty and authorized Admin can edit Courses.',
+        });
         return;
       }
 
@@ -5331,9 +6256,9 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Course not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      if (!canAdminManageCourses && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the course instructor or Admin can edit this course.',
+          error: 'Only the course instructor or authorized Admin can edit this course.',
         });
         return;
       }
@@ -5418,8 +6343,17 @@ async function buildExpressApp(): Promise<express.Express> {
     requireAuth,
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const user = req.userRecord!.user;
-      if (user.role !== 'faculty' && user.role !== 'admin') {
-        res.status(403).json({ error: 'Only Faculty and Admin can delete Courses.' });
+      const canAdminManageCourses =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'faculty') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (user.role !== 'faculty' && !canAdminManageCourses) {
+        res.status(403).json({
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Faculty' or 'Dashboard & Analytics' administrator permission."
+              : 'Only Faculty and authorized Admin can delete Courses.',
+        });
         return;
       }
 
@@ -5440,9 +6374,9 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Course not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      if (!canAdminManageCourses && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the course instructor or Admin can delete this course.',
+          error: 'Only the course instructor or authorized Admin can delete this course.',
         });
         return;
       }
@@ -5524,6 +6458,12 @@ async function buildExpressApp(): Promise<express.Express> {
       if (user.role === 'student') {
         res.status(403).json({
           error: 'Faculty directory editing is disabled for student accounts.',
+        });
+        return;
+      }
+      if (user.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'faculty')) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Faculty' administrator permission.",
         });
         return;
       }
@@ -5670,6 +6610,12 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(403).json({ error: 'Students cannot modify faculty details.' });
         return;
       }
+      if (user.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'faculty')) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Faculty' administrator permission.",
+        });
+        return;
+      }
 
       const id = parseUuidParam(req.params.id);
       if (!id) {
@@ -5714,7 +6660,7 @@ async function buildExpressApp(): Promise<express.Express> {
           }
 
           const isAuthorized =
-            user.role === 'admin' ||
+            (user.role === 'admin' && hasAdminRecordPermission(req.userRecord, 'faculty')) ||
             (existing.linkedUserId
               ? existing.linkedUserId === user.id
               : existing.authorId === user.id);
@@ -5958,6 +6904,12 @@ async function buildExpressApp(): Promise<express.Express> {
         });
         return;
       }
+      if (user.role === 'admin' && !hasAdminRecordPermission(req.userRecord, 'faculty')) {
+        res.status(403).json({
+          error: "Access denied: Requires 'Faculty' administrator permission.",
+        });
+        return;
+      }
 
       const result = await db.transaction(async (tx) => {
         const [existing] = await tx
@@ -5971,7 +6923,7 @@ async function buildExpressApp(): Promise<express.Express> {
         }
 
         const isAuthorized =
-          user.role === 'admin' ||
+          (user.role === 'admin' && hasAdminRecordPermission(req.userRecord, 'faculty')) ||
           (existing.linkedUserId
             ? existing.linkedUserId === user.id
             : existing.authorId === user.id);
@@ -6011,9 +6963,16 @@ async function buildExpressApp(): Promise<express.Express> {
     asyncHandler(async (req: AuthedRequest, res: Response) => {
       const db = requireDb();
       const user = req.userRecord!.user;
-      if (user.role !== 'faculty' && user.role !== 'admin') {
+      const canAdminManageResources =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'faculty') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (user.role !== 'faculty' && !canAdminManageResources) {
         res.status(403).json({
-          error: 'Only Faculty and Admin can publish official Academic Resources.',
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Faculty' or 'Dashboard & Analytics' administrator permission."
+              : 'Only Faculty and authorized Admin can publish official Academic Resources.',
         });
         return;
       }
@@ -6085,9 +7044,16 @@ async function buildExpressApp(): Promise<express.Express> {
 
       const db = requireDb();
       const user = req.userRecord!.user;
-      if (user.role !== 'faculty' && user.role !== 'admin') {
+      const canAdminManageResources =
+        user.role === 'admin' &&
+        (hasAdminRecordPermission(req.userRecord, 'faculty') ||
+          hasAdminRecordPermission(req.userRecord, 'dashboard_analytics'));
+      if (user.role !== 'faculty' && !canAdminManageResources) {
         res.status(403).json({
-          error: 'Only Faculty and Admin can delete Academic Resources.',
+          error:
+            user.role === 'admin'
+              ? "Access denied: Requires 'Faculty' or 'Dashboard & Analytics' administrator permission."
+              : 'Only Faculty and authorized Admin can delete Academic Resources.',
         });
         return;
       }
@@ -6102,9 +7068,9 @@ async function buildExpressApp(): Promise<express.Express> {
         res.status(404).json({ error: 'Resource not found.' });
         return;
       }
-      if (user.role !== 'admin' && existing.authorId !== user.id) {
+      if (!canAdminManageResources && existing.authorId !== user.id) {
         res.status(403).json({
-          error: 'Only the uploader or Admin can remove this resource.',
+          error: 'Only the uploader or authorized Admin can remove this resource.',
         });
         return;
       }
