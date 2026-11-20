@@ -22,7 +22,7 @@ import {
   X,
   UserCog,
 } from 'lucide-react';
-import { getStoredToken } from '../api';
+import { apiRequest } from '../api';
 import type { PortalProgress, PublicUserProfile } from '../types';
 
 interface AdminDashboardViewProps {
@@ -165,20 +165,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [adminPassError, setAdminPassError] = useState<string | null>(null);
   const [adminPassSuccess, setAdminPassSuccess] = useState<string | null>(null);
 
-  const getAuthToken = () => getStoredToken() || '';
-
   // Load Faculty
   const loadFaculty = async () => {
     setLoadingFaculty(true);
     setFacultyError(null);
     try {
-      const res = await fetch('/api/admin/faculty', {
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
-      });
-      if (!res.ok) {
-        throw new Error('Failed to load faculty accounts');
-      }
-      const data = await res.json().catch(() => ({}));
+      const data = await apiRequest<{ faculty?: PublicUserProfile[] }>('/api/admin/faculty');
       setFacultyList(data?.faculty || []);
     } catch (err) {
       setFacultyError(err instanceof Error ? err.message : 'Error loading faculty');
@@ -191,15 +183,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const loadStudents = async () => {
     setLoadingStudents(true);
     try {
-      const res = await fetch('/api/admin/students', {
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
-      });
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setStudentsList(data?.students || []);
-      }
-    } catch {
-      // ignore
+      const data = await apiRequest<{ students?: PublicUserProfile[] }>('/api/admin/students');
+      setStudentsList(data?.students || []);
+    } catch (err) {
+      setFacultyError(err instanceof Error ? err.message : 'Error loading student accounts');
     } finally {
       setLoadingStudents(false);
     }
@@ -254,18 +241,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
     setCreateSubmitting(true);
     try {
-      const res = await fetch('/api/admin/faculty', {
+      await apiRequest('/api/admin/faculty', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
         body: JSON.stringify(createForm),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to create faculty account');
-      }
 
       setFacultySuccess(`Faculty account created for ${createForm.name} (${createForm.memberId.toUpperCase()})`);
       setCreateFacultyOpen(false);
@@ -294,21 +273,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setEditError(null);
     setEditSubmitting(true);
     try {
-      const res = await fetch(`/api/admin/faculty/${editFaculty.id}`, {
+      await apiRequest(`/api/admin/faculty/${editFaculty.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
         body: JSON.stringify({
           ...editForm,
           experienceYears: parseInt(editForm.experienceYears, 10) || 0,
         }),
       });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(d?.error || 'Failed to update faculty');
-      }
       setFacultySuccess(`Updated details and bio for ${editForm.name}`);
       setEditFaculty(null);
       await Promise.all([loadFaculty(), Promise.resolve(onFacultyChanged?.())]);
@@ -326,29 +297,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setEditStudentError(null);
     setEditStudentSubmitting(true);
     try {
-      const res = await fetch(`/api/admin/students/${editStudent.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({
-          name: editStudentForm.name,
-          email: editStudentForm.email,
-          department: editStudentForm.department,
-          year: editStudentForm.year,
-          section: editStudentForm.section,
-          phone: editStudentForm.phone,
-          cgpa: parseFloat(editStudentForm.cgpa) || 0,
-          skills: editStudentForm.skills,
-          bio: editStudentForm.bio,
-          isActive: editStudentForm.isActive,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to update student profile');
-      }
+      const data = await apiRequest<{ student: PublicUserProfile }>(
+        `/api/admin/students/${editStudent.id}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: editStudentForm.name,
+            email: editStudentForm.email,
+            department: editStudentForm.department,
+            year: editStudentForm.year,
+            section: editStudentForm.section,
+            phone: editStudentForm.phone,
+            cgpa: parseFloat(editStudentForm.cgpa) || 0,
+            skills: editStudentForm.skills,
+            bio: editStudentForm.bio,
+            isActive: editStudentForm.isActive,
+          }),
+        }
+      );
       setStudentsList((prev) =>
         prev.map((s) => (s.id === editStudent.id ? data.student : s))
       );
@@ -368,12 +334,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setAdminProfileSuccess(null);
     setAdminProfileSaving(true);
     try {
-      const res = await fetch('/api/profile', {
+      const data = await apiRequest<{
+        profile: PublicUserProfile;
+        progress: PortalProgress;
+      }>('/api/profile', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
         body: JSON.stringify({
           name: adminProfileForm.name,
           email: adminProfileForm.email,
@@ -384,10 +349,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           bio: adminProfileForm.bio,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to update administrator profile');
-      }
       onProfileUpdated?.(data.profile, data.progress);
       setIsEditingAdminProfile(false);
       setAdminProfileSuccess('Administrator profile, name, and personal bio updated successfully.');
@@ -419,19 +380,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
     setChangePassSubmitting(true);
     try {
-      const res = await fetch(`/api/admin/faculty/${changePasswordTarget.id}/change-password`, {
+      await apiRequest(`/api/admin/faculty/${changePasswordTarget.id}/change-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
         body: JSON.stringify({
           newPassword: facultyNewPassword,
           confirmPassword: facultyConfirmPassword,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to change password');
 
       setFacultySuccess(`Password updated successfully for ${changePasswordTarget.name}`);
       setChangePasswordTarget(null);
@@ -447,12 +402,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   // Handle Toggle Faculty Status
   const handleToggleStatus = async (faculty: PublicUserProfile) => {
     try {
-      const res = await fetch(`/api/admin/faculty/${faculty.id}/toggle-status`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to toggle status');
+      const data = await apiRequest<{ message: string }>(
+        `/api/admin/faculty/${faculty.id}/toggle-status`,
+        {
+          method: 'POST',
+        }
+      );
       setFacultySuccess(data.message);
       loadFaculty();
     } catch (err) {
@@ -465,12 +420,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     if (!deleteConfirmTarget || deleteSubmitting) return;
     setDeleteSubmitting(true);
     try {
-      const res = await fetch(`/api/admin/faculty/${deleteConfirmTarget.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to delete faculty');
+      const data = await apiRequest<{ message: string }>(
+        `/api/admin/faculty/${deleteConfirmTarget.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
       setFacultySuccess(data.message);
       setDeleteConfirmTarget(null);
       await Promise.all([loadFaculty(), Promise.resolve(onFacultyChanged?.())]);
@@ -502,20 +457,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
     setAdminPassSubmitting(true);
     try {
-      const res = await fetch('/api/auth/admin/change-password', {
+      await apiRequest('/api/auth/admin/change-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
         body: JSON.stringify({
           currentPassword: adminCurrentPassword,
           newPassword: adminNewPassword,
           confirmPassword: adminConfirmPassword,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to update admin password');
 
       setAdminPassSuccess('Administrator password has been successfully updated.');
       setAdminCurrentPassword('');
@@ -563,7 +512,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
             <div className="min-w-0">
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 mb-1">
-                PRAGATI ENGINEERING COLLEGE · SURAMPALEM
+                PRAGATI UNIVERSITY · SURAMPALEM
               </div>
               <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2 break-words">
                 Central Administrator Portal

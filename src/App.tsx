@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState, useRef } from 'react';
 import {
   LayoutDashboard,
   Trophy,
@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   ChevronRight,
 } from 'lucide-react';
-import { apiRequest, getStoredToken, setStoredToken } from './api';
+import { ApiError, apiRequest, getStoredToken, setStoredToken } from './api';
 import type {
   AcademicResource,
   AppTechnology,
@@ -41,21 +41,55 @@ import type {
   PublicUserProfile,
   SpotlightBanner,
 } from './types';
-import { AuthModal } from './components/AuthModal';
-import { DashboardView } from './components/DashboardView';
-import { HackathonsView } from './components/HackathonsView';
-import { ProjectsView } from './components/ProjectsView';
-import { InterviewExperienceView } from './components/InterviewExperienceView';
-import { ProblemsView } from './components/ProblemsView';
-import { AppsTechView } from './components/AppsTechView';
-import { PlacementsView } from './components/PlacementsView';
-import { CoursesView, ResourcesView } from './components/CoursesAndFacultyView';
-import { FacultyView } from './components/FacultyView';
-import { StudentSearchView } from './components/StudentSearchView';
-import { MyProfileView } from './components/MyProfileView';
-import { RemindersModal } from './components/RemindersModal';
 import { LockedGateView } from './components/LockedGateView';
-import { AdminDashboardView } from './components/AdminDashboardView';
+
+const DashboardView = lazy(() =>
+  import('./components/DashboardView').then((m) => ({ default: m.DashboardView }))
+);
+const AuthModal = lazy(() =>
+  import('./components/AuthModal').then((m) => ({ default: m.AuthModal }))
+);
+const HackathonsView = lazy(() =>
+  import('./components/HackathonsView').then((m) => ({ default: m.HackathonsView }))
+);
+const ProjectsView = lazy(() =>
+  import('./components/ProjectsView').then((m) => ({ default: m.ProjectsView }))
+);
+const InterviewExperienceView = lazy(() =>
+  import('./components/InterviewExperienceView').then((m) => ({
+    default: m.InterviewExperienceView,
+  }))
+);
+const ProblemsView = lazy(() =>
+  import('./components/ProblemsView').then((m) => ({ default: m.ProblemsView }))
+);
+const AppsTechView = lazy(() =>
+  import('./components/AppsTechView').then((m) => ({ default: m.AppsTechView }))
+);
+const PlacementsView = lazy(() =>
+  import('./components/PlacementsView').then((m) => ({ default: m.PlacementsView }))
+);
+const CoursesView = lazy(() =>
+  import('./components/CoursesAndFacultyView').then((m) => ({ default: m.CoursesView }))
+);
+const ResourcesView = lazy(() =>
+  import('./components/CoursesAndFacultyView').then((m) => ({ default: m.ResourcesView }))
+);
+const FacultyView = lazy(() =>
+  import('./components/FacultyView').then((m) => ({ default: m.FacultyView }))
+);
+const StudentSearchView = lazy(() =>
+  import('./components/StudentSearchView').then((m) => ({ default: m.StudentSearchView }))
+);
+const MyProfileView = lazy(() =>
+  import('./components/MyProfileView').then((m) => ({ default: m.MyProfileView }))
+);
+const RemindersModal = lazy(() =>
+  import('./components/RemindersModal').then((m) => ({ default: m.RemindersModal }))
+);
+const AdminDashboardView = lazy(() =>
+  import('./components/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView }))
+);
 
 const EMPTY_PROGRESS: PortalProgress = {
   appsUploaded: 0,
@@ -168,8 +202,10 @@ export function App() {
       } catch {
         // ignore
       }
-    } catch {
-      setStoredToken(null);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setStoredToken(null);
+      }
       setCurrentUser(null);
       setUserProgress(EMPTY_PROGRESS);
       setPersonalReminders([]);
@@ -420,7 +456,7 @@ export function App() {
             {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          {/* Pragati College Crest & Title */}
+          {/* Pragati University Crest & Title */}
           <button
             type="button"
             onClick={() => handleNavigate('dashboard')}
@@ -428,15 +464,15 @@ export function App() {
           >
             <img
               src="/pragati-logo.png"
-              alt="Pragati Engineering College"
+              alt="Pragati University"
               className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl object-contain shadow-xs shrink-0 p-0.5 border border-slate-200 bg-white"
             />
             <div className="flex flex-col min-w-0">
               <span className="text-sm sm:text-base lg:text-lg font-extrabold tracking-tight text-slate-900 group-hover:text-blue-700 transition-colors truncate leading-tight">
-                Pragati Engineering College
+                Pragati University
               </span>
               <span className="text-[10px] font-medium text-slate-500 truncate hidden sm:block leading-none mt-0.5">
-                Surampalem · Autonomous Campus Portal
+                Surampalem · University Campus Portal
               </span>
             </div>
           </button>
@@ -747,7 +783,14 @@ export function App() {
                   onNavigateHome={() => setActiveSection('dashboard')}
                 />
               ) : (
-                <>
+                <Suspense
+                  fallback={
+                    <div className="space-y-4">
+                      <div className="h-24 w-full rounded-2xl bg-slate-200/60 animate-pulse" />
+                      <div className="h-48 w-full rounded-2xl bg-white border border-slate-200 animate-pulse" />
+                    </div>
+                  }
+                >
                   {activeSection === 'dashboard' && (
                     <DashboardView
                       currentUser={currentUser}
@@ -899,7 +942,7 @@ export function App() {
                       }}
                     />
                   )}
-                </>
+                </Suspense>
               )}
             </>
           )}
@@ -908,29 +951,37 @@ export function App() {
     </div>
 
       {/* Movable/Draggable Auth Modal (Dropdown for Academic Year, Designation selection, No Google Login) */}
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onAuthenticated={handleAuthenticated}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
+      {authModalOpen && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onAuthenticated={handleAuthenticated}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+          />
+        </Suspense>
+      )}
 
       {/* Reminders & Alerts Modal (Works for all users; Department broadcast reminders + Personal study tasks) */}
-      <RemindersModal
-        isOpen={remindersModalOpen}
-        onClose={() => setRemindersModalOpen(false)}
-        currentUser={currentUser}
-        notifications={notifications}
-        personalReminders={personalReminders}
-        onNotificationsChange={setNotifications}
-        onPersonalRemindersChange={setPersonalReminders}
-        onNavigateSection={handleNavigate}
-        onRequireAuth={() => {
-          setRemindersModalOpen(false);
-          setAuthModalOpen(true);
-        }}
-      />
+      {remindersModalOpen && (
+        <Suspense fallback={null}>
+          <RemindersModal
+            isOpen={remindersModalOpen}
+            onClose={() => setRemindersModalOpen(false)}
+            currentUser={currentUser}
+            notifications={notifications}
+            personalReminders={personalReminders}
+            onNotificationsChange={setNotifications}
+            onPersonalRemindersChange={setPersonalReminders}
+            onNavigateSection={handleNavigate}
+            onRequireAuth={() => {
+              setRemindersModalOpen(false);
+              setAuthModalOpen(true);
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

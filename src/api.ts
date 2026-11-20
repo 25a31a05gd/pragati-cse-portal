@@ -20,6 +20,16 @@ export function setStoredToken(token: string | null): void {
   }
 }
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {}
@@ -41,7 +51,10 @@ export async function apiRequest<T>(
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data?.error || `Request failed (${response.status})`);
+    throw new ApiError(
+      data?.error || `Request failed (${response.status})`,
+      response.status
+    );
   }
   return data as T;
 }

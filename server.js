@@ -701,7 +701,8 @@ function resolveDatabaseConfig(rawUrl) {
       port,
       prepareDisabled: !prepare,
       sslMode,
-      ipv4PoolerRecommended: connectionMode === "direct"
+      ipv4PoolerRecommended: connectionMode === "direct",
+      transactionPoolerRecommended: Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) && connectionMode === "session_pooler"
     }
   };
 }
@@ -724,11 +725,12 @@ function ensureInitialized() {
     };
     return false;
   }
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
   cachedSql = postgres(resolved.connectionString, {
     prepare: resolved.prepare,
     ssl: resolved.ssl,
-    max: 5,
-    idle_timeout: 20,
+    max: isServerless ? 1 : 5,
+    idle_timeout: isServerless ? 10 : 20,
     connect_timeout: 10
   });
   cachedDb = drizzle(cachedSql, { schema: schema_exports });
@@ -827,12 +829,26 @@ function getSupabaseCredentials() {
       "Supabase backend configuration missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
     );
   }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      throw new Error("Invalid SUPABASE_URL protocol.");
+    }
+  } catch {
+    throw new Error("Supabase backend configuration invalid: SUPABASE_URL must be a valid URL.");
+  }
   return { url, serviceRoleKey };
 }
 function isSupabaseConfigured() {
-  return Boolean(
-    (process.env.SUPABASE_URL || "").trim() && (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim()
-  );
+  const url = (process.env.SUPABASE_URL || "").trim();
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!url || !serviceRoleKey) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 function getSupabaseAdmin() {
   if (cachedAdminClient) {
@@ -870,6 +886,9 @@ function isTransientSupabaseError(err) {
   return /ENETUNREACH|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|network/i.test(
     `${code} ${msg}`
   );
+}
+function isSupabaseConfigError(err) {
+  return err instanceof Error && /Supabase backend configuration (missing|invalid)/i.test(err.message);
 }
 async function verifySupabaseJwt(accessToken) {
   if (!accessToken || !isSupabaseConfigured()) {
@@ -920,6 +939,13 @@ async function signInSupabasePassword(email, password) {
       user: data.user
     };
   } catch (err) {
+    if (isSupabaseConfigError(err)) {
+      console.error("[Supabase Auth] Backend environment configuration missing or invalid.");
+      return {
+        error: "Authentication service is not configured on the backend server. Please verify SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.",
+        unavailable: true
+      };
+    }
     if (isTransientSupabaseError(err)) {
       console.warn("[Supabase Auth] Network exception during password sign-in.");
       return {
@@ -2675,9 +2701,9 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
-async function startServer() {
+var cachedAppPromise = null;
+async function buildExpressApp() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3e3;
   app.set("trust proxy", 1);
   app.use(
     helmet({
@@ -2738,25 +2764,31 @@ async function startServer() {
     asyncHandler(async (_req, res) => {
       res.setHeader("Cache-Control", "no-store");
       const dbReadiness = await checkDatabaseReadiness();
+      const supabaseConfigured = isSupabaseConfigured();
+      const initialAdminEmailConfigured = Boolean(
+        (process.env.INITIAL_ADMIN_EMAIL || "").replace(/^['"]+|['"]+$/g, "").trim()
+      );
       if (process.env.NODE_ENV === "production") {
-        res.status(dbReadiness.connected ? 200 : 503).json({
-          ok: dbReadiness.connected,
-          status: dbReadiness.connected ? "ok" : "degraded",
+        const allReady = dbReadiness.connected && supabaseConfigured;
+        res.status(allReady ? 200 : 503).json({
+          ok: allReady,
+          status: allReady ? "ok" : "degraded",
           environment: "production",
+          supabaseConfigured,
+          initialAdminEmailConfigured,
           database: dbReadiness
         });
         return;
       }
       res.json({
-        ok: dbReadiness.connected,
-        status: dbReadiness.connected ? "ok" : "degraded",
+        ok: dbReadiness.connected && supabaseConfigured,
+        status: dbReadiness.connected && supabaseConfigured ? "ok" : "degraded",
         environment: process.env.NODE_ENV || "development",
         databaseConfigured: Boolean(process.env.DATABASE_URL),
         supabaseUrlConfigured: Boolean(process.env.SUPABASE_URL),
         supabaseSecretConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-        initialAdminEmailConfigured: Boolean(
-          (process.env.INITIAL_ADMIN_EMAIL || "").replace(/^['"]+|['"]+$/g, "").trim()
-        ),
+        supabaseConfigured,
+        initialAdminEmailConfigured,
         codingVerifySecretConfigured: Boolean(
           (process.env.CODING_VERIFY_HMAC_SECRET || "").trim()
         ),
@@ -2880,16 +2912,16 @@ async function startServer() {
             email: cleanEmail,
             role: "admin",
             department: "Administration",
-            batchOrDesignation: "College Portal Administrator",
+            batchOrDesignation: "University Portal Administrator",
             phone: "",
-            bio: "Chief Administrator for Pragati Engineering College Portal.",
+            bio: "Chief Administrator for Pragati University Portal.",
             skills: "Portal Administration, Faculty Management, Security",
             isActive: true,
             canManageSpotlights: true
           });
           await tx.insert(schema_exports.adminProfiles).values({
             userId: newUserId,
-            title: "College Portal Administrator",
+            title: "University Portal Administrator",
             createdBySystemSetup: true
           });
           await tx.update(schema_exports.portalSettings).set({ adminInitialized: true }).where(eq2(schema_exports.portalSettings.id, 1));
@@ -3044,7 +3076,7 @@ async function startServer() {
           department: cleanDept,
           batchOrDesignation: `${cleanYear} B.Tech ${cleanDept} \xB7 Section ${cleanSection}`,
           phone: "",
-          bio: `Student at Pragati Engineering College, ${cleanDept}.`,
+          bio: `Student at Pragati University, ${cleanDept}.`,
           skills: "",
           isActive: true,
           canManageSpotlights: false
@@ -3081,7 +3113,7 @@ async function startServer() {
       token: sessionResult.accessToken,
       profile: toPublicProfile(record, { includePhone: true }),
       progress,
-      message: "Student account created successfully! Welcome to Pragati Engineering College Portal."
+      message: "Student account created successfully! Welcome to Pragati University Portal."
     });
   }
   app.post("/api/auth/student-register", asyncHandler(handleStudentRegistration));
@@ -3091,7 +3123,7 @@ async function startServer() {
       const { role } = req.body;
       if (role === "faculty") {
         res.status(403).json({
-          error: "Faculty accounts cannot be self-registered. Please contact the College Administrator to obtain your faculty credentials."
+          error: "Faculty accounts cannot be self-registered. Please contact the University Administrator to obtain your faculty credentials."
         });
         return;
       }
@@ -3120,7 +3152,7 @@ async function startServer() {
       if (!userRow) {
         if (expectedRole === "faculty") {
           res.status(401).json({
-            error: "No faculty account found with these credentials. Faculty accounts must be created by the College Administrator."
+            error: "No faculty account found with these credentials. Faculty accounts must be created by the University Administrator."
           });
           return;
         }
@@ -3131,7 +3163,7 @@ async function startServer() {
       }
       if (!userRow.isActive) {
         res.status(403).json({
-          error: "Your account has been deactivated by the portal administrator. Please contact college admin."
+          error: "Your account has been deactivated by the portal administrator. Please contact university admin."
         });
         return;
       }
@@ -3256,7 +3288,7 @@ async function startServer() {
             department: cleanDept,
             phone: cleanPhone,
             batchOrDesignation: `${cleanDesignation}, ${cleanDept}`,
-            bio: `${cleanDesignation} in ${cleanDept} at Pragati Engineering College.`,
+            bio: `${cleanDesignation} in ${cleanDept} at Pragati University.`,
             skills: cleanDept,
             isActive: true,
             canManageSpotlights: true
@@ -6607,22 +6639,38 @@ async function startServer() {
     console.error("[API Error]", pgCode || "UNHANDLED");
     res.status(500).json({ error: message });
   });
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa"
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(__dirname, "dist");
-    app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+  if (!process.env.VERCEL) {
+    if (process.env.NODE_ENV !== "production") {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa"
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(__dirname, "dist");
+      app.use(express.static(distPath));
+      app.get("*", (_req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
+  }
+  return app;
+}
+function getExpressApp() {
+  if (!cachedAppPromise) {
+    cachedAppPromise = buildExpressApp().catch((err) => {
+      cachedAppPromise = null;
+      throw err;
     });
   }
+  return cachedAppPromise;
+}
+async function startServer() {
+  const app = await getExpressApp();
+  const PORT = Number(process.env.PORT) || 3e3;
   const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`CSE Department Portal server running on http://0.0.0.0:${PORT}`);
+    console.log(`Pragati University CSE Portal server running on http://0.0.0.0:${PORT}`);
     if (!isSupabaseConfigured()) {
       console.warn(
         "[Startup Notice] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set in environment."
@@ -6635,7 +6683,7 @@ async function startServer() {
       );
     } else if (dbMeta.ipv4PoolerRecommended) {
       console.warn(
-        "[Startup Warning] DATABASE_URL points to a direct Supabase host (*.supabase.co). On IPv4-only hosts like Render, switch to the Supabase Session Pooler (port 5432) or Transaction Pooler (port 6543, *.pooler.supabase.com) to avoid ENETUNREACH errors."
+        "[Startup Warning] DATABASE_URL points to a direct Supabase host (*.supabase.co). Switch to the Supabase Session Pooler (port 5432) or Transaction Pooler (port 6543, *.pooler.supabase.com) to avoid IPv4 ENETUNREACH errors."
       );
     }
     if (process.env.NODE_ENV === "production" && !(process.env.CODING_VERIFY_HMAC_SECRET || "").trim()) {
@@ -6668,8 +6716,13 @@ process.on("unhandledRejection", (reason) => {
   const label = code || (reason instanceof Error ? reason.name : "UnknownRejection");
   console.error("[Process Warning] Unhandled promise rejection:", label);
 });
-startServer().catch((err) => {
-  const code = getPgErrorCode(err);
-  console.error("[Fatal Startup Error]", code || (err instanceof Error ? err.name : "StartupError"));
-  process.exit(1);
-});
+if (!process.env.VERCEL) {
+  startServer().catch((err) => {
+    const code = getPgErrorCode(err);
+    console.error("[Fatal Startup Error]", code || (err instanceof Error ? err.name : "StartupError"));
+    process.exit(1);
+  });
+}
+export {
+  getExpressApp
+};

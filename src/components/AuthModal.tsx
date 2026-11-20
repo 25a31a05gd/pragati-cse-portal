@@ -59,6 +59,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Admin Initialized State (fetched from DB)
   const [adminInitialized, setAdminInitialized] = useState<boolean | null>(null);
   const [loadingAdminStatus, setLoadingAdminStatus] = useState<boolean>(false);
+  const [adminStatusError, setAdminStatusError] = useState<string | null>(null);
 
   // Common UI State
   const [submitting, setSubmitting] = useState(false);
@@ -101,14 +102,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Fetch admin setup status whenever modal opens or admin tab is selected
   const fetchAdminStatus = async () => {
     setLoadingAdminStatus(true);
+    setAdminStatusError(null);
     try {
-      const res = await fetch('/api/auth/admin-status');
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setAdminInitialized(Boolean(data?.initialized));
-      }
-    } catch {
-      // fallback
+      const data = await apiRequest<{ initialized?: boolean }>('/api/auth/admin-status');
+      setAdminInitialized(Boolean(data?.initialized));
+    } catch (err) {
+      setAdminInitialized(null);
+      setAdminStatusError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to verify administrator initialization status from server.'
+      );
     } finally {
       setLoadingAdminStatus(false);
     }
@@ -289,7 +293,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : 'Faculty login failed. Faculty accounts must be created by the College Administrator.'
+          : 'Faculty login failed. Faculty accounts must be created by the University Administrator.'
       );
     } finally {
       setSubmitting(false);
@@ -410,20 +414,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* College Header & Branding */}
+        {/* University Header & Branding */}
         <div className="relative z-10 text-center pb-4 sm:pb-5 border-b border-slate-800/80 pr-8 sm:pr-0">
           <div className="flex items-center justify-start sm:justify-center gap-3 mb-2.5">
             <img
               src="/pragati-logo.png"
-              alt="Pragati Engineering College"
+              alt="Pragati University"
               className="w-11 h-11 sm:w-14 sm:h-14 shrink-0 object-contain rounded-full shadow-lg p-0.5 bg-white/5 border border-cyan-400/40"
             />
             <div className="text-left min-w-0">
               <span className="text-[10px] tracking-wider font-extrabold uppercase text-cyan-400 block">
-                AUTONOMOUS · NBA & NAAC ACCREDITED 'A' GRADE
+                PRAGATI UNIVERSITY · NBA & NAAC ACCREDITED
               </span>
               <h2 className="text-base sm:text-xl font-black text-white tracking-tight leading-tight">
-                PRAGATI ENGINEERING COLLEGE
+                PRAGATI UNIVERSITY
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
                 SURAMPALEM, NEAR PEDDAPURAM, ADB ROAD, E.G. DIST., A.P.
@@ -819,7 +823,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold block text-cyan-300">Authorized Faculty Login</span>
-                    Faculty accounts are provisioned exclusively by the College Administrator. Enter your Faculty ID or registered email with the password provided by administration.
+                    Faculty accounts are provisioned exclusively by the University Administrator. Enter your Faculty ID or registered email with the password provided by administration.
                   </div>
                 </div>
 
@@ -891,6 +895,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="py-8 text-center text-slate-400 text-xs">
                     Verifying administrative initialization state...
                   </div>
+                ) : adminStatusError ? (
+                  <div className="p-4 rounded-2xl bg-rose-950/50 border border-rose-500/40 text-rose-200 text-xs space-y-3">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold block text-rose-300">
+                          Unable to Check Administrator Status
+                        </span>
+                        <p className="mt-1 text-rose-200/90">{adminStatusError}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchAdminStatus}
+                      className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-100 font-semibold text-xs transition-colors"
+                    >
+                      Retry Status Check
+                    </button>
+                  </div>
                 ) : adminInitialized === false ? (
                   /* FIRST TIME ADMIN ACCOUNT SETUP */
                   <div className="space-y-3.5">
@@ -900,7 +923,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <span className="font-semibold block text-amber-300">
                           First-Time Administrator Setup
                         </span>
-                        Initialize the primary Administrator account for Pragati Engineering College. Once saved, this setup screen is permanently locked and only regular Admin Login will be available.
+                        Initialize the primary Administrator account for Pragati University. Once saved, this setup screen is permanently locked and only regular Admin Login will be available.
                       </div>
                     </div>
 

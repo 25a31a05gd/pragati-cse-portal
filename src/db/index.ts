@@ -17,6 +17,7 @@ export interface DatabaseConnectionMetadata {
   prepareDisabled: boolean;
   sslMode: 'require' | 'verify-full' | 'disabled';
   ipv4PoolerRecommended?: boolean;
+  transactionPoolerRecommended?: boolean;
 }
 
 export interface DatabaseReadinessStatus extends DatabaseConnectionMetadata {
@@ -89,6 +90,9 @@ function resolveDatabaseConfig(rawUrl: string | undefined): ResolvedConfig | nul
       prepareDisabled: !prepare,
       sslMode,
       ipv4PoolerRecommended: connectionMode === 'direct',
+      transactionPoolerRecommended:
+        Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) &&
+        connectionMode === 'session_pooler',
     },
   };
 }
@@ -115,11 +119,12 @@ function ensureInitialized(): boolean {
     return false;
   }
 
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
   cachedSql = postgres(resolved.connectionString, {
     prepare: resolved.prepare,
     ssl: resolved.ssl,
-    max: 5,
-    idle_timeout: 20,
+    max: isServerless ? 1 : 5,
+    idle_timeout: isServerless ? 10 : 20,
     connect_timeout: 10,
   });
   cachedDb = drizzle(cachedSql, { schema });

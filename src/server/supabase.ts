@@ -11,14 +11,27 @@ function getSupabaseCredentials(): { url: string; serviceRoleKey: string } {
       'Supabase backend configuration missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.'
     );
   }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      throw new Error('Invalid SUPABASE_URL protocol.');
+    }
+  } catch {
+    throw new Error('Supabase backend configuration invalid: SUPABASE_URL must be a valid URL.');
+  }
   return { url, serviceRoleKey };
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    (process.env.SUPABASE_URL || '').trim() &&
-      (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
-  );
+  const url = (process.env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!url || !serviceRoleKey) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -67,6 +80,13 @@ function isTransientSupabaseError(err: unknown): boolean {
   if (status === 0 || (status !== undefined && status >= 500)) return true;
   return /ENETUNREACH|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|fetch failed|network/i.test(
     `${code} ${msg}`
+  );
+}
+
+function isSupabaseConfigError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    /Supabase backend configuration (missing|invalid)/i.test(err.message)
   );
 }
 
@@ -123,6 +143,14 @@ export async function signInSupabasePassword(
       user: data.user,
     };
   } catch (err) {
+    if (isSupabaseConfigError(err)) {
+      console.error('[Supabase Auth] Backend environment configuration missing or invalid.');
+      return {
+        error:
+          'Authentication service is not configured on the backend server. Please verify SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.',
+        unavailable: true,
+      };
+    }
     if (isTransientSupabaseError(err)) {
       console.warn('[Supabase Auth] Network exception during password sign-in.');
       return {
