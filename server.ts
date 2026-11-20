@@ -4,6 +4,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import helmet from 'helmet';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
@@ -292,6 +293,26 @@ const TRANSIENT_DB_ERROR_CODES = new Set([
   'EAI_AGAIN',
   'ECONNRESET',
   'EHOSTUNREACH',
+  'EPIPE',
+  'CONNECT_TIMEOUT',
+  'CONNECTION_CLOSED',
+  'CONNECTION_ENDED',
+  'CONNECTION_DESTROYED',
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+  '08007',
+  '53300',
+  '57P01',
+  '57P02',
+  '57P03',
+  '28P01',
+  'XX000',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'CERT_HAS_EXPIRED',
 ]);
 
 function isDbConnectivityError(err: unknown): boolean {
@@ -299,7 +320,12 @@ function isDbConnectivityError(err: unknown): boolean {
   if (code && TRANSIENT_DB_ERROR_CODES.has(code)) {
     return true;
   }
-  if (err instanceof Error && /Database connection is not configured/i.test(err.message)) {
+  if (
+    err instanceof Error &&
+    /Database connection is not configured|connect\s+E|connect_timeout|connection\s+(closed|ended|terminated)|timeout expired|Tenant or user not found|password authentication failed|remaining connection slots are reserved/i.test(
+      err.message
+    )
+  ) {
     return true;
   }
   return false;
@@ -394,16 +420,99 @@ function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction): vo
   next();
 }
 
+function getConfiguredCorsEntries(): string[] {
+  const raw = [
+    process.env.CORS_ORIGINS,
+    process.env.FRONTEND_URL,
+    process.env.CLIENT_URL,
+    process.env.APP_URL,
+  ]
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .join(',');
+
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((entry) => entry.trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, ''))
+    .filter((entry) => entry.length > 0 && entry !== 'MY_APP_URL');
+}
+
+function isAllowedCorsOrigin(origin: string, configuredEntries: string[]): boolean {
+  let parsedOrigin: URL;
+  try {
+    parsedOrigin = new URL(origin);
+  } catch {
+    return false;
+  }
+
+  if (parsedOrigin.protocol !== 'http:' && parsedOrigin.protocol !== 'https:') {
+    return false;
+  }
+
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    (parsedOrigin.hostname === 'localhost' || parsedOrigin.hostname === '127.0.0.1')
+  ) {
+    return true;
+  }
+
+  const normalizedOrigin = parsedOrigin.origin.toLowerCase();
+  for (const entry of configuredEntries) {
+    if (entry.includes('*')) {
+      const escaped = entry
+        .toLowerCase()
+        .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '[^.]+');
+      if (new RegExp(`^${escaped}$`).test(normalizedOrigin)) {
+        return true;
+      }
+      continue;
+    }
+
+    try {
+      const parsedEntry = new URL(entry);
+      if (parsedEntry.origin.toLowerCase() === normalizedOrigin) {
+        return true;
+      }
+    } catch {
+      if (entry.toLowerCase() === normalizedOrigin) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 let cachedAppPromise: Promise<express.Express> | null = null;
 
 async function buildExpressApp(): Promise<express.Express> {
   const app = express();
+  const configuredCorsEntries = getConfiguredCorsEntries();
 
   app.set('trust proxy', 1);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestOrigin = req.headers.origin;
+    if (requestOrigin && isAllowedCorsOrigin(requestOrigin, configuredCorsEntries)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.use(
     helmet({
       contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     })
   );
   app.use(express.json({ limit: '2mb' }));
@@ -6062,10 +6171,21 @@ async function buildExpressApp(): Promise<express.Express> {
       app.use(vite.middlewares);
     } else {
       const distPath = path.join(__dirname, 'dist');
-      app.use(express.static(distPath));
-      app.get('*', (_req, res) => {
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
+      const indexHtmlPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexHtmlPath)) {
+        app.use(express.static(distPath));
+        app.get('*', (_req, res) => {
+          res.sendFile(indexHtmlPath);
+        });
+      } else {
+        app.get('/', (_req, res) => {
+          res.json({
+            ok: true,
+            service: 'Pragati University CSE Portal API',
+            health: '/api/health',
+          });
+        });
+      }
     }
   }
 

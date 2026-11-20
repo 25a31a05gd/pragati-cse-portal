@@ -1,4 +1,30 @@
 const AUTH_TOKEN_KEY = 'cse_dept_portal_token';
+const REQUEST_TIMEOUT_MS = 25000;
+
+function normalizeApiBaseUrl(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return `${parsed.origin}${parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '')}`;
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+
+export function resolveApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return API_BASE_URL ? `${API_BASE_URL}${normalizedPath}` : normalizedPath;
+}
 
 export function getStoredToken(): string | null {
   try {
@@ -44,19 +70,64 @@ export async function apiRequest<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(path, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(
-      data?.error || `Request failed (${response.status})`,
-      response.status
-    );
+  const externalSignal = options.signal;
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
   }
-  return data as T;
+
+  let response: Response;
+  try {
+    response = await fetch(resolveApiUrl(path), {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
+    if (timedOut) {
+      throw new ApiError(
+        'Backend server took too long to respond. If the backend is waking up from idle, please wait a moment and try again.',
+        504
+      );
+    }
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw err;
+    }
+    throw new ApiError(
+      'Unable to reach the backend server. Please verify your internet connection or backend API / CORS configuration.',
+      503
+    );
+  } finally {
+    clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
+  }
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const serverError =
+      data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string'
+        ? (data as { error: string }).error
+        : '';
+    throw new ApiError(serverError || `Request failed (${response.status})`, response.status);
+  }
+  return (data ?? {}) as T;
 }
 
 export function safeExternalHref(raw: string | null | undefined): string | undefined {
