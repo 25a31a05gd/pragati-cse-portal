@@ -315,9 +315,12 @@ const TRANSIENT_DB_ERROR_CODES = new Set([
   '08006',
   '08007',
   '53300',
+  '53400',
+  '57014',
   '57P01',
   '57P02',
   '57P03',
+  '08P01',
   '28P01',
   'XX000',
   'SELF_SIGNED_CERT_IN_CHAIN',
@@ -332,13 +335,59 @@ function isDbConnectivityError(err: unknown): boolean {
   }
   if (
     err instanceof Error &&
-    /Database connection is not configured|connect\s+E|connect_timeout|connection\s+(closed|ended|terminated)|timeout expired|Tenant or user not found|password authentication failed|remaining connection slots are reserved/i.test(
+    /Database connection is not configured|connect\s+E|connect_timeout|connection\s+(closed|ended|terminated)|timeout expired|Tenant or user not found|password authentication failed|remaining connection slots are reserved|MaxClientsInSessionMode/i.test(
       err.message
     )
   ) {
     return true;
   }
   return false;
+}
+
+function sanitizeForLog(raw: string): string {
+  return raw
+    .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, 'postgresql://[REDACTED]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT_REDACTED]')
+    .replace(/(password|secret|service_role|token|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL_REDACTED]');
+}
+
+function getErrorCauseSummary(err: unknown, depth = 0): string | undefined {
+  if (depth > 3 || !err || typeof err !== 'object') return undefined;
+  const candidate = err as { cause?: unknown; message?: unknown; name?: unknown; code?: unknown };
+  if (depth > 0) {
+    const label = [
+      typeof candidate.name === 'string' ? candidate.name : 'Error',
+      typeof candidate.code === 'string' ? `(${candidate.code})` : '',
+      typeof candidate.message === 'string' ? sanitizeForLog(candidate.message) : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return label || undefined;
+  }
+  return candidate.cause ? getErrorCauseSummary(candidate.cause, depth + 1) : undefined;
+}
+
+function logApiError(label: string, req: Request, err: unknown): void {
+  const pgCode = getPgErrorCode(err);
+  const constraint = getPgConstraintName(err);
+  const errorName = err instanceof Error ? err.name : typeof err;
+  const rawMessage = err instanceof Error ? err.message : String(err);
+  const causeSummary = getErrorCauseSummary(err);
+  const stack =
+    err instanceof Error && err.stack
+      ? sanitizeForLog(err.stack.split('\n').slice(0, 8).join('\n'))
+      : undefined;
+
+  console.error(`[${label}] ${req.method} ${req.path}`, {
+    errorName,
+    pgCode: pgCode || undefined,
+    constraint: constraint || undefined,
+    message: sanitizeForLog(rawMessage),
+    cause: causeSummary,
+    stack,
+  });
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -412,10 +461,7 @@ async function attachUser(
     }
   } catch (err) {
     req.authTokenStatus = 'invalid_or_expired';
-    const pgCode = getPgErrorCode(err);
-    if (pgCode) {
-      console.warn('[Auth Middleware] Profile lookup error while verifying bearer token:', pgCode);
-    }
+    logApiError('Auth Middleware Error', req, err);
   }
   next();
 }
@@ -7097,6 +7143,7 @@ async function buildExpressApp(): Promise<express.Express> {
     }
 
     if (isMissingTableOrRelation(err)) {
+      logApiError('API Schema Error', req, err);
       res.status(503).json({
         error:
           'Database schema migrations have not been applied to Supabase PostgreSQL yet.',
@@ -7105,8 +7152,7 @@ async function buildExpressApp(): Promise<express.Express> {
     }
 
     if (isDbConnectivityError(err)) {
-      const dbCode = getPgErrorCode(err) || 'DB_UNAVAILABLE';
-      console.error('[API DB Connectivity Error]', dbCode);
+      logApiError('API DB Connectivity Error', req, err);
       res.status(503).json({
         error:
           'Database service is temporarily unreachable. Please verify database configuration and try again shortly.',
@@ -7114,14 +7160,13 @@ async function buildExpressApp(): Promise<express.Express> {
       return;
     }
 
-    const pgCode = getPgErrorCode(err);
+    logApiError('API Error', req, err);
     const message =
       err instanceof Error &&
       !/failed query|postgres|supabase|key|password|secret/i.test(err.message)
         ? err.message
         : 'Internal server error while processing database request.';
 
-    console.error('[API Error]', pgCode || 'UNHANDLED');
     res.status(500).json({ error: message });
   });
 

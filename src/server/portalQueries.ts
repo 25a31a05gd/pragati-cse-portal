@@ -240,8 +240,13 @@ export function toPublicProfile(
 
 function isMissingColumnPgError(err: unknown, depth = 0): boolean {
   if (depth > 5 || !err || typeof err !== 'object') return false;
-  const candidate = err as { code?: unknown; cause?: unknown };
+  const candidate = err as { code?: unknown; cause?: unknown; errors?: unknown };
   if (candidate.code === '42703') return true;
+  if (Array.isArray(candidate.errors)) {
+    for (const inner of candidate.errors) {
+      if (isMissingColumnPgError(inner, depth + 1)) return true;
+    }
+  }
   return candidate.cause ? isMissingColumnPgError(candidate.cause, depth + 1) : false;
 }
 

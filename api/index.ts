@@ -1,5 +1,36 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { getExpressApp } from '../server';
+import type express from 'express';
+
+type ExpressAppLoader = () => Promise<express.Express>;
+
+let cachedLoaderPromise: Promise<ExpressAppLoader> | null = null;
+
+async function loadGetExpressApp(): Promise<ExpressAppLoader> {
+  if (!cachedLoaderPromise) {
+    cachedLoaderPromise = (async () => {
+      try {
+        const bundled = (await import('../server.js')) as { getExpressApp: ExpressAppLoader };
+        return bundled.getExpressApp;
+      } catch {
+        const tsSource = (await import('../server')) as { getExpressApp: ExpressAppLoader };
+        return tsSource.getExpressApp;
+      }
+    })().catch((err) => {
+      cachedLoaderPromise = null;
+      throw err;
+    });
+  }
+  return cachedLoaderPromise;
+}
+
+function sanitizeLogText(raw: string): string {
+  return raw
+    .replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, 'postgresql://[REDACTED]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[JWT_REDACTED]')
+    .replace(/(password|secret|service_role|token|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL_REDACTED]');
+}
 
 function sendJsonFallbackError(
   res: ServerResponse,
@@ -18,6 +49,7 @@ export default async function handler(
   res: ServerResponse
 ): Promise<void> {
   try {
+    const getExpressApp = await loadGetExpressApp();
     const app = await getExpressApp();
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -36,10 +68,14 @@ export default async function handler(
         res as Parameters<typeof app>[1],
         (err?: unknown) => {
           if (err) {
-            console.error(
-              '[Vercel API Handler Error]',
-              err instanceof Error ? err.name : 'UnhandledError'
-            );
+            console.error('[Vercel API Handler Error]', {
+              errorName: err instanceof Error ? err.name : typeof err,
+              message: sanitizeLogText(err instanceof Error ? err.message : String(err)),
+              stack:
+                err instanceof Error && err.stack
+                  ? sanitizeLogText(err.stack.split('\n').slice(0, 8).join('\n'))
+                  : undefined,
+            });
             sendJsonFallbackError(
               res,
               503,
@@ -51,14 +87,18 @@ export default async function handler(
       );
     });
   } catch (err) {
-    console.error(
-      '[Vercel API Bootstrap Error]',
-      err instanceof Error ? err.name : 'BootstrapError'
-    );
+    console.error('[Vercel API Bootstrap Error]', {
+      errorName: err instanceof Error ? err.name : typeof err,
+      message: sanitizeLogText(err instanceof Error ? err.message : String(err)),
+      stack:
+        err instanceof Error && err.stack
+          ? sanitizeLogText(err.stack.split('\n').slice(0, 8).join('\n'))
+          : undefined,
+    });
     sendJsonFallbackError(
       res,
       503,
-      'Backend API failed to initialize on serverless runtime. Verify backend environment configuration.'
+      'Backend API failed to initialize on serverless runtime. Verify backend environment configuration or VITE_API_BASE_URL for Render.'
     );
   }
 }
