@@ -6,24 +6,29 @@ import { defineConfig, loadEnv } from 'vite';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
+const DEFAULT_VERCEL_API_URL = 'https://pragati-cse-portal-yieo.vercel.app';
+const DEPRECATED_OR_LOCKED_BACKEND_HOSTS = new Set([
+  'pragati-cse-portal-1.onrender.com',
+  'pragati-cse-portal-yieo-qlikn1mt6-kishore-6855.vercel.app',
+]);
+
 function sanitizeBuildApiBaseUrl(raw: string | undefined): string {
   const trimmed = (raw || '').trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, '');
-  if (!trimmed) return '';
+  if (!trimmed) return DEFAULT_VERCEL_API_URL;
   const candidate = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)
     ? trimmed
     : `https://${trimmed}`;
   try {
     const parsed = new URL(candidate);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return '';
+      return DEFAULT_VERCEL_API_URL;
     }
-    // Never embed any *.vercel.app preview/frontend URL into compiled bundles as the backend API base.
-    if (parsed.hostname.toLowerCase().endsWith('.vercel.app')) {
-      return '';
+    if (DEPRECATED_OR_LOCKED_BACKEND_HOSTS.has(parsed.hostname.toLowerCase())) {
+      return DEFAULT_VERCEL_API_URL;
     }
-    return trimmed;
+    return parsed.origin + (parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, ''));
   } catch {
-    return '';
+    return DEFAULT_VERCEL_API_URL;
   }
 }
 

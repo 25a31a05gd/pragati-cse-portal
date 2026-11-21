@@ -1,15 +1,14 @@
 const AUTH_TOKEN_KEY = 'cse_dept_portal_token';
 const REQUEST_TIMEOUT_MS = 25000;
-const DEFAULT_PRODUCTION_RENDER_API_URL = 'https://pragati-cse-portal-1.onrender.com';
+const DEFAULT_PRODUCTION_API_URL = 'https://pragati-cse-portal-yieo.vercel.app';
+const DEPRECATED_OR_LOCKED_BACKEND_HOSTS = new Set([
+  'pragati-cse-portal-1.onrender.com',
+  'pragati-cse-portal-yieo-qlikn1mt6-kishore-6855.vercel.app',
+]);
 
-function isDedicatedBackendHost(hostname: string): boolean {
+function isLocalDevelopmentHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
-  return (
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host.endsWith('.onrender.com') ||
-    host.endsWith('.run.app')
-  );
+  return host === 'localhost' || host === '127.0.0.1';
 }
 
 function normalizeApiBaseUrl(raw: unknown): string {
@@ -31,23 +30,23 @@ function normalizeApiBaseUrl(raw: unknown): string {
       return '';
     }
 
+    if (DEPRECATED_OR_LOCKED_BACKEND_HOSTS.has(parsed.hostname.toLowerCase())) {
+      if (
+        typeof window !== 'undefined' &&
+        window.location.origin.toLowerCase() === DEFAULT_PRODUCTION_API_URL
+      ) {
+        return '';
+      }
+      return DEFAULT_PRODUCTION_API_URL;
+    }
+
     if (typeof window !== 'undefined') {
       const currentOrigin = window.location.origin.toLowerCase();
-      const currentHost = window.location.hostname.toLowerCase();
       const targetHost = parsed.hostname.toLowerCase();
 
       // Same-origin URL should use relative /api/... requests
       if (parsed.origin.toLowerCase() === currentOrigin) {
         return '';
-      }
-
-      // Never use any *.vercel.app URL (including obsolete Vercel Preview deployments)
-      // as the backend API base URL. Dedicated backend hosts use same-origin (''),
-      // while static/Vercel frontends fall back to the Render production backend.
-      if (targetHost.endsWith('.vercel.app')) {
-        return isDedicatedBackendHost(currentHost)
-          ? ''
-          : DEFAULT_PRODUCTION_RENDER_API_URL;
       }
 
       // Avoid mixed-content errors on HTTPS pages
@@ -59,8 +58,6 @@ function normalizeApiBaseUrl(raw: unknown): string {
       ) {
         parsed.protocol = 'https:';
       }
-    } else if (parsed.hostname.toLowerCase().endsWith('.vercel.app')) {
-      return DEFAULT_PRODUCTION_RENDER_API_URL;
     }
 
     let pathname = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
@@ -82,13 +79,18 @@ function resolveEffectiveApiBaseUrl(): string {
   }
 
   if (typeof window !== 'undefined') {
+    const currentOrigin = window.location.origin.toLowerCase();
     const currentHost = window.location.hostname.toLowerCase();
-    // Same-origin only applies on local dev, AI Studio sandboxes, or the Render host itself.
-    // On Vercel (*.vercel.app) or standalone static production domains, do not silently fall back
-    // to a broken relative /api/* serverless endpoint when VITE_API_BASE_URL is unset at build time.
-    if (currentHost.endsWith('.vercel.app') || (import.meta.env.PROD && !isDedicatedBackendHost(currentHost))) {
-      return DEFAULT_PRODUCTION_RENDER_API_URL;
+
+    if (currentOrigin === DEFAULT_PRODUCTION_API_URL) {
+      return '';
     }
+
+    if (import.meta.env.PROD || !isLocalDevelopmentHost(currentHost)) {
+      return DEFAULT_PRODUCTION_API_URL;
+    }
+  } else {
+    return DEFAULT_PRODUCTION_API_URL;
   }
 
   return '';

@@ -56,7 +56,7 @@ export default async function handler(
             sendJsonFallbackError(
               res,
               503,
-              'Backend API could not complete this request. Verify DATABASE_URL, Supabase secrets, or VITE_API_BASE_URL if hosted on Render.'
+              'Backend API could not complete this request. Verify DATABASE_URL and Supabase environment secrets.'
             );
           }
           done();
@@ -75,7 +75,7 @@ export default async function handler(
     sendJsonFallbackError(
       res,
       503,
-      'Backend API failed to initialize on serverless runtime. Verify backend environment configuration or VITE_API_BASE_URL for Render.'
+      'Backend API failed to initialize on serverless runtime. Verify backend environment configuration on Vercel.'
     );
   }
 }

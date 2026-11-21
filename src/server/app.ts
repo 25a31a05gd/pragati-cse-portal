@@ -564,6 +564,9 @@ async function generateUniqueAdminMemberId(db: ReturnType<typeof requireDb>): Pr
   return `ADM-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 }
 
+const TRUSTED_STATIC_ORIGINS = new Set([
+  'https://pragati-university.ai.studio',
+]);
 const TRUSTED_PORTAL_VERCEL_ORIGIN_RE =
   /^https:\/\/pragati-cse-portal(?:-[a-z0-9-]+)*\.vercel\.app$/i;
 const TRUSTED_AISTUDIO_ORIGIN_RE =
@@ -610,8 +613,9 @@ function isAllowedCorsOrigin(origin: string, configuredEntries: string[]): boole
     return true;
   }
 
-  // Project-scoped Vercel production & preview deployments and AI Studio preview sandboxes
+  // Project-scoped Vercel deployments, AI Studio preview sandboxes, and pragati-university.ai.studio
   if (
+    TRUSTED_STATIC_ORIGINS.has(normalizedOrigin) ||
     TRUSTED_PORTAL_VERCEL_ORIGIN_RE.test(normalizedOrigin) ||
     TRUSTED_AISTUDIO_ORIGIN_RE.test(normalizedOrigin)
   ) {
