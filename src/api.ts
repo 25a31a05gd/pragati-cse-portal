@@ -1,10 +1,30 @@
 const AUTH_TOKEN_KEY = 'cse_dept_portal_token';
 const REQUEST_TIMEOUT_MS = 25000;
+const DEFAULT_PRODUCTION_RENDER_API_URL = 'https://pragati-cse-portal-1.onrender.com';
+
+function isDedicatedBackendHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host.endsWith('.onrender.com') ||
+    host.endsWith('.run.app')
+  );
+}
 
 function normalizeApiBaseUrl(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  const trimmed = raw.trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, '');
+  let trimmed = raw.trim().replace(/^['"]+|['"]+$/g, '').replace(/\/+$/, '');
   if (!trimmed) return '';
+
+  if (
+    !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed) &&
+    /^[a-zA-Z0-9.-]+(?::\d+)?(?:\/.*)?$/.test(trimmed)
+  ) {
+    const isLocalHost = /^(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(trimmed);
+    trimmed = `${isLocalHost ? 'http' : 'https'}://${trimmed}`;
+  }
+
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
@@ -27,14 +47,14 @@ function normalizeApiBaseUrl(raw: unknown): string {
         return '';
       }
 
-      // On Vercel deployments, ignore stale cross-deployment *.vercel.app preview URLs
-      // (which trigger Vercel SSO 302 redirects and CORS failures).
+      // On Vercel deployments, never route to a different *.vercel.app deployment
+      // (which triggers Vercel SSO redirects or hits an unconfigured Vercel /api fallback).
       if (
         currentHost.endsWith('.vercel.app') &&
         targetHost.endsWith('.vercel.app') &&
         targetHost !== currentHost
       ) {
-        return '';
+        return DEFAULT_PRODUCTION_RENDER_API_URL;
       }
 
       // Avoid mixed-content errors on HTTPS pages
@@ -60,7 +80,26 @@ function normalizeApiBaseUrl(raw: unknown): string {
   }
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+function resolveEffectiveApiBaseUrl(): string {
+  const configured = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+  if (configured) {
+    return configured;
+  }
+
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname.toLowerCase();
+    // Same-origin only applies on local dev, AI Studio sandboxes, or the Render host itself.
+    // On Vercel (*.vercel.app) or standalone static production domains, do not silently fall back
+    // to a broken relative /api/* serverless endpoint when VITE_API_BASE_URL is unset at build time.
+    if (currentHost.endsWith('.vercel.app') || (import.meta.env.PROD && !isDedicatedBackendHost(currentHost))) {
+      return DEFAULT_PRODUCTION_RENDER_API_URL;
+    }
+  }
+
+  return '';
+}
+
+export const API_BASE_URL = resolveEffectiveApiBaseUrl();
 
 export function resolveApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) {
@@ -97,6 +136,15 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+  }
+}
+
+function getTargetOriginForDisplay(resolvedUrl: string): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return new URL(resolvedUrl, window.location.origin).origin;
+  } catch {
+    return '';
   }
 }
 
@@ -140,9 +188,12 @@ export async function apiRequest<T>(
     }
   }
 
+  const resolvedUrl = resolveApiUrl(path);
+  const targetOrigin = getTargetOriginForDisplay(resolvedUrl);
+
   let response: Response;
   try {
-    response = await fetch(resolveApiUrl(path), {
+    response = await fetch(resolvedUrl, {
       ...options,
       headers,
       signal: controller.signal,
@@ -161,6 +212,22 @@ export async function apiRequest<T>(
     if (err instanceof Error && err.name === 'AbortError') {
       throw err;
     }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      throw new ApiError(
+        'You appear to be offline. Please check your internet connection and try again.',
+        503
+      );
+    }
+    if (
+      typeof window !== 'undefined' &&
+      targetOrigin &&
+      targetOrigin !== window.location.origin
+    ) {
+      throw new ApiError(
+        `Unable to reach the backend API (${targetOrigin}). Please verify network connectivity or confirm ${window.location.origin} is allowed by backend CORS.`,
+        503
+      );
+    }
     throw new ApiError(
       'Unable to reach the backend server. Please verify your internet connection or backend API / CORS configuration.',
       503
@@ -173,21 +240,54 @@ export async function apiRequest<T>(
   }
 
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
-  const data = await response.json().catch(() => null);
+  const rawText = await response.text().catch(() => '');
+  let data: unknown = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = null;
+    }
+  }
+
+  const looksLikeHtml =
+    contentType.includes('text/html') || rawText.trimStart().startsWith('<');
+
   if (!response.ok) {
     const serverError =
       data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string'
         ? (data as { error: string }).error
         : '';
-    throw new ApiError(serverError || `Request failed (${response.status})`, response.status);
+    if (serverError) {
+      throw new ApiError(serverError, response.status);
+    }
+    if (looksLikeHtml) {
+      throw new ApiError(
+        `Backend API returned HTTP ${response.status} HTML instead of JSON${targetOrigin ? ` from ${targetOrigin}` : ''}. Please verify backend routing or server status.`,
+        response.status
+      );
+    }
+    throw new ApiError(`Request failed with HTTP ${response.status}.`, response.status);
   }
-  if (data === null && contentType.includes('text/html')) {
+
+  if (response.status === 204 || !rawText.trim()) {
+    return {} as T;
+  }
+
+  if (data === null) {
+    if (looksLikeHtml) {
+      throw new ApiError(
+        'Backend API route returned HTML instead of JSON. Please check VITE_API_BASE_URL and backend routing.',
+        502
+      );
+    }
     throw new ApiError(
-      'Backend API route returned HTML instead of JSON. Please check VITE_API_BASE_URL and backend routing.',
+      'Backend API returned an invalid non-JSON response.',
       502
     );
   }
-  return (data ?? {}) as T;
+
+  return data as T;
 }
 
 export function safeExternalHref(raw: string | null | undefined): string | undefined {

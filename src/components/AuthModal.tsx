@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   ShieldCheck,
@@ -99,8 +99,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [adminLoginId, setAdminLoginId] = useState('');
   const [adminLoginPassword, setAdminLoginPassword] = useState('');
 
+  const adminStatusReqIdRef = useRef(0);
+
   // Fetch admin setup status whenever modal opens or admin tab is selected
   const fetchAdminStatus = async () => {
+    const requestId = ++adminStatusReqIdRef.current;
     setLoadingAdminStatus(true);
     setAdminStatusError(null);
     try {
@@ -108,11 +111,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         initialized?: boolean;
         tokenStatus?: 'none' | 'valid' | 'invalid_or_expired';
       }>('/api/auth/admin-status');
+      if (requestId !== adminStatusReqIdRef.current) return;
       if (data?.tokenStatus === 'invalid_or_expired') {
         setStoredToken(null);
       }
-      setAdminInitialized(Boolean(data?.initialized));
+      if (typeof data?.initialized !== 'boolean') {
+        throw new Error('Backend returned an invalid administrator status payload.');
+      }
+      setAdminInitialized(data.initialized);
     } catch (err) {
+      if (requestId !== adminStatusReqIdRef.current) return;
       setAdminInitialized(null);
       setAdminStatusError(
         err instanceof Error
@@ -120,7 +128,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           : 'Unable to verify administrator initialization status from server.'
       );
     } finally {
-      setLoadingAdminStatus(false);
+      if (requestId === adminStatusReqIdRef.current) {
+        setLoadingAdminStatus(false);
+      }
     }
   };
 

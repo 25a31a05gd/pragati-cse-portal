@@ -3061,7 +3061,9 @@ function getConfiguredCorsEntries() {
     process.env.CORS_ORIGINS,
     process.env.FRONTEND_URL,
     process.env.CLIENT_URL,
-    process.env.APP_URL
+    process.env.APP_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.RENDER_EXTERNAL_HOSTNAME
   ].filter((v) => typeof v === "string" && v.trim().length > 0).join(",");
   if (!raw) return [];
   return raw.split(/[,\s]+/).map((entry) => entry.trim().replace(/^['"]+|['"]+$/g, "").replace(/\/+$/, "")).filter((entry) => entry.length > 0 && entry !== "MY_APP_URL" && entry !== "*");
@@ -3119,9 +3121,17 @@ async function buildExpressApp() {
         res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
         res.setHeader(
           "Access-Control-Allow-Headers",
-          "Content-Type, Authorization, Accept, Cache-Control"
+          "Content-Type, Authorization, Accept, Cache-Control, X-Requested-With, Pragma"
         );
         res.setHeader("Access-Control-Max-Age", "86400");
+      } else {
+        console.warn(
+          `[CORS Blocked] Origin=${sanitizeForLog(requestOrigin)} Method=${req.method} Path=${req.path}`
+        );
+        if (req.method === "OPTIONS") {
+          res.status(403).json({ error: "Origin not allowed by CORS policy." });
+          return;
+        }
       }
     }
     if (req.method === "OPTIONS") {
