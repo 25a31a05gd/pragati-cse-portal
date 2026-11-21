@@ -41,20 +41,13 @@ function normalizeApiBaseUrl(raw: unknown): string {
         return '';
       }
 
-      // In AI Studio preview (*.run.app), ignore misconfigured *.vercel.app URLs
-      // so the app uses its own same-origin Express backend.
-      if (currentHost.endsWith('.run.app') && targetHost.endsWith('.vercel.app')) {
-        return '';
-      }
-
-      // On Vercel deployments, never route to a different *.vercel.app deployment
-      // (which triggers Vercel SSO redirects or hits an unconfigured Vercel /api fallback).
-      if (
-        currentHost.endsWith('.vercel.app') &&
-        targetHost.endsWith('.vercel.app') &&
-        targetHost !== currentHost
-      ) {
-        return DEFAULT_PRODUCTION_RENDER_API_URL;
+      // Never use any *.vercel.app URL (including obsolete Vercel Preview deployments)
+      // as the backend API base URL. Dedicated backend hosts use same-origin (''),
+      // while static/Vercel frontends fall back to the Render production backend.
+      if (targetHost.endsWith('.vercel.app')) {
+        return isDedicatedBackendHost(currentHost)
+          ? ''
+          : DEFAULT_PRODUCTION_RENDER_API_URL;
       }
 
       // Avoid mixed-content errors on HTTPS pages
@@ -66,6 +59,8 @@ function normalizeApiBaseUrl(raw: unknown): string {
       ) {
         parsed.protocol = 'https:';
       }
+    } else if (parsed.hostname.toLowerCase().endsWith('.vercel.app')) {
+      return DEFAULT_PRODUCTION_RENDER_API_URL;
     }
 
     let pathname = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
