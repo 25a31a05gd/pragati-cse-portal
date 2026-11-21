@@ -1,27 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import type express from 'express';
-
-type ExpressAppLoader = () => Promise<express.Express>;
-
-let cachedLoaderPromise: Promise<ExpressAppLoader> | null = null;
-
-async function loadGetExpressApp(): Promise<ExpressAppLoader> {
-  if (!cachedLoaderPromise) {
-    cachedLoaderPromise = (async () => {
-      try {
-        const bundled = (await import('../server.js')) as { getExpressApp: ExpressAppLoader };
-        return bundled.getExpressApp;
-      } catch {
-        const tsSource = (await import('../server')) as { getExpressApp: ExpressAppLoader };
-        return tsSource.getExpressApp;
-      }
-    })().catch((err) => {
-      cachedLoaderPromise = null;
-      throw err;
-    });
-  }
-  return cachedLoaderPromise;
-}
+import { getExpressApp } from '../src/server/app.js';
 
 function sanitizeLogText(raw: string): string {
   return raw
@@ -49,7 +27,6 @@ export default async function handler(
   res: ServerResponse
 ): Promise<void> {
   try {
-    const getExpressApp = await loadGetExpressApp();
     const app = await getExpressApp();
     await new Promise<void>((resolve) => {
       let settled = false;

@@ -1,6 +1,6 @@
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
-import * as schema from './schema';
+import * as schema from './schema.js';
 
 export type AppDatabase = PostgresJsDatabase<typeof schema>;
 
@@ -34,7 +34,7 @@ interface ResolvedConfig {
 }
 
 function resolveDatabaseConfig(rawUrl: string | undefined): ResolvedConfig | null {
-  const trimmed = (rawUrl || '').trim();
+  const trimmed = (rawUrl || '').trim().replace(/^['"]+|['"]+$/g, '');
   if (!trimmed) {
     return null;
   }

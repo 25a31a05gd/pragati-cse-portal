@@ -6,16 +6,10 @@ var __export = (target, all) => {
 
 // server.ts
 import "dotenv/config";
-import dns from "dns";
-import express from "express";
-import crypto from "crypto";
-import helmet from "helmet";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import express2 from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { and as and2, desc as desc2, eq as eq2, isNull as isNull2, or as or2, sql as sql3 } from "drizzle-orm";
-import { z } from "zod";
 
 // src/db/index.ts
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -665,7 +659,7 @@ var notificationReadsRelations = relations(notificationReads, ({ one }) => ({
 
 // src/db/index.ts
 function resolveDatabaseConfig(rawUrl) {
-  const trimmed = (rawUrl || "").trim();
+  const trimmed = (rawUrl || "").trim().replace(/^['"]+|['"]+$/g, "");
   if (!trimmed) {
     return null;
   }
@@ -831,9 +825,12 @@ async function closeDb() {
 // src/server/supabase.ts
 import { createClient } from "@supabase/supabase-js";
 var cachedAdminClient = null;
+function cleanEnvValue(raw) {
+  return (raw || "").trim().replace(/^['"]+|['"]+$/g, "");
+}
 function getSupabaseCredentials() {
-  const url = (process.env.SUPABASE_URL || "").trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const url = cleanEnvValue(process.env.SUPABASE_URL);
+  const serviceRoleKey = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !serviceRoleKey) {
     throw new Error(
       "Supabase backend configuration missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
@@ -850,8 +847,8 @@ function getSupabaseCredentials() {
   return { url, serviceRoleKey };
 }
 function isSupabaseConfigured() {
-  const url = (process.env.SUPABASE_URL || "").trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const url = cleanEnvValue(process.env.SUPABASE_URL);
+  const serviceRoleKey = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !serviceRoleKey) return false;
   try {
     const parsed = new URL(url);
@@ -1071,6 +1068,16 @@ async function signOutSupabaseJwt(accessToken) {
   } catch {
   }
 }
+
+// src/server/app.ts
+import "dotenv/config";
+import dns from "dns";
+import express from "express";
+import crypto from "crypto";
+import helmet from "helmet";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { and as and2, desc as desc2, eq as eq2, isNull as isNull2, or as or2, sql as sql3 } from "drizzle-orm";
+import { z } from "zod";
 
 // src/server/codingStats.ts
 var PLATFORM_META = {
@@ -2675,10 +2682,8 @@ async function searchStudentsDirectory(db, queryText, options = {}) {
   return results;
 }
 
-// server.ts
+// src/server/app.ts
 dns.setDefaultResultOrder("ipv4first");
-var __filename = fileURLToPath(import.meta.url);
-var __dirname = path.dirname(__filename);
 var uuidSchema = z.string().uuid("Invalid record identifier.");
 var EPHEMERAL_HMAC_FALLBACK = crypto.randomBytes(32).toString("hex");
 var CODING_OWNER_CODE_TTL_SEC = 30 * 60;
@@ -3108,7 +3113,7 @@ function isAllowedCorsOrigin(origin, configuredEntries) {
   return false;
 }
 var cachedAppPromise = null;
-async function buildExpressApp() {
+async function buildExpressApp(options) {
   const app = express();
   const configuredCorsEntries = getConfiguredCorsEntries();
   app.set("trust proxy", 1);
@@ -7659,46 +7664,61 @@ async function buildExpressApp() {
     const message = err instanceof Error && !/failed query|postgres|supabase|key|password|secret/i.test(err.message) ? err.message : "Internal server error while processing database request.";
     res.status(500).json({ error: message });
   });
-  if (!process.env.VERCEL) {
-    if (process.env.NODE_ENV !== "production") {
-      const { createServer: createViteServer } = await import("vite");
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa"
-      });
-      app.use(vite.middlewares);
-    } else {
-      const distPath = path.join(__dirname, "dist");
-      const indexHtmlPath = path.join(distPath, "index.html");
-      if (fs.existsSync(indexHtmlPath)) {
-        app.use(express.static(distPath));
-        app.get("*", (_req, res) => {
-          res.sendFile(indexHtmlPath);
-        });
-      } else {
-        app.get("/", (_req, res) => {
-          res.json({
-            ok: true,
-            service: "Pragati University CSE Portal API",
-            health: "/api/health"
-          });
-        });
-      }
-    }
+  if (options?.mountFrontend) {
+    await options.mountFrontend(app);
   }
   return app;
 }
-function getExpressApp() {
+function getExpressApp(options) {
   if (!cachedAppPromise) {
-    cachedAppPromise = buildExpressApp().catch((err) => {
+    cachedAppPromise = buildExpressApp(options).catch((err) => {
       cachedAppPromise = null;
       throw err;
     });
   }
   return cachedAppPromise;
 }
+
+// server.ts
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path.dirname(__filename);
+async function mountStandaloneFrontend(app) {
+  if (process.env.VERCEL) {
+    return;
+  }
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
+    return;
+  }
+  const distPath = path.join(__dirname, "dist");
+  const indexHtmlPath = path.join(distPath, "index.html");
+  if (fs.existsSync(indexHtmlPath)) {
+    app.use(express2.static(distPath));
+    app.get("*", (_req, res) => {
+      res.sendFile(indexHtmlPath);
+    });
+  } else {
+    app.get("/", (_req, res) => {
+      res.json({
+        ok: true,
+        service: "Pragati University CSE Portal API",
+        health: "/api/health"
+      });
+    });
+  }
+}
+function getExpressApp2() {
+  return getExpressApp({
+    mountFrontend: mountStandaloneFrontend
+  });
+}
 async function startServer() {
-  const app = await getExpressApp();
+  const app = await getExpressApp2();
   const PORT = Number(process.env.PORT) || 3e3;
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Pragati University CSE Portal server running on http://0.0.0.0:${PORT}`);
@@ -7755,5 +7775,5 @@ if (!process.env.VERCEL) {
   });
 }
 export {
-  getExpressApp
+  getExpressApp2 as getExpressApp
 };

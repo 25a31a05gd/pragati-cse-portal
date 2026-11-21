@@ -1,6 +1,6 @@
 import { and, count, desc, eq, ilike, inArray, isNull, or, sql, asc } from 'drizzle-orm';
-import { type AppDatabase, schema } from '../db/index';
-import { isWithinVerificationTtl } from './codingStats';
+import { type AppDatabase, schema } from '../db/index.js';
+import { isWithinVerificationTtl } from './codingStats.js';
 import type {
   AcademicResource,
   AdminAnalyticsSummary,
@@ -27,7 +27,7 @@ import type {
   SpotlightBanner,
   StudentDirectoryDetail,
   UserRole,
-} from '../types';
+} from '../types.js';
 
 export interface HydratedUserRecord {
   user: typeof schema.users.$inferSelect;

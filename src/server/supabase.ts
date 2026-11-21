@@ -1,11 +1,15 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import type { UserRole } from '../types';
+import type { UserRole } from '../types.js';
 
 let cachedAdminClient: SupabaseClient | null = null;
 
+function cleanEnvValue(raw: string | undefined): string {
+  return (raw || '').trim().replace(/^['"]+|['"]+$/g, '');
+}
+
 function getSupabaseCredentials(): { url: string; serviceRoleKey: string } {
-  const url = (process.env.SUPABASE_URL || '').trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  const url = cleanEnvValue(process.env.SUPABASE_URL);
+  const serviceRoleKey = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !serviceRoleKey) {
     throw new Error(
       'Supabase backend configuration missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.'
@@ -23,8 +27,8 @@ function getSupabaseCredentials(): { url: string; serviceRoleKey: string } {
 }
 
 export function isSupabaseConfigured(): boolean {
-  const url = (process.env.SUPABASE_URL || '').trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  const url = cleanEnvValue(process.env.SUPABASE_URL);
+  const serviceRoleKey = cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !serviceRoleKey) return false;
   try {
     const parsed = new URL(url);
