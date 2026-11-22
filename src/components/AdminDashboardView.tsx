@@ -54,6 +54,7 @@ type AdminTab = 'admins' | 'analytics' | 'faculty' | 'students' | 'settings';
 const DEPARTMENTS = [
   'Administration',
   'Computer Science & Engineering (CSE)',
+  'CSE (Artificial Intelligence)',
   'CSE (Artificial Intelligence & Machine Learning)',
   'CSE (Data Science)',
   'Information Technology (IT)',
@@ -315,6 +316,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   // Students State
   const [studentsList, setStudentsList] = useState<PublicUserProfile[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
+  const [studentDeptFilter, setStudentDeptFilter] = useState('ALL');
+  const [studentYearFilter, setStudentYearFilter] = useState('ALL');
+  const [studentSectionFilter, setStudentSectionFilter] = useState('ALL');
+  const [studentSortBy, setStudentSortBy] = useState<
+    'dept_year_section' | 'year_section' | 'member_id' | 'name' | 'cgpa_desc'
+  >('dept_year_section');
   const [loadingStudents, setLoadingStudents] = useState(false);
 
   // Admin Profile & Bio Form State
@@ -946,17 +953,84 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     );
   });
 
-  const filteredStudents = studentsList.filter((s) => {
-    const q = studentSearch.toLowerCase();
-    return (
-      s.name.toLowerCase().includes(q) ||
-      s.memberId.toLowerCase().includes(q) ||
-      s.email.toLowerCase().includes(q) ||
-      (s.department || '').toLowerCase().includes(q) ||
-      (s.year || '').toLowerCase().includes(q) ||
-      (s.section || '').toLowerCase().includes(q)
-    );
-  });
+  const studentDepartmentOptions = Array.from(
+    new Set([
+      ...DEPARTMENTS.filter((d) => d !== 'Administration'),
+      ...studentsList
+        .map((s) => (s.department || '').trim())
+        .filter((d) => d.length > 0),
+    ])
+  );
+
+  const yearRank = (year?: string): number => {
+    const idx = YEARS.indexOf(year || '');
+    return idx === -1 ? 99 : idx;
+  };
+
+  const filteredStudents = studentsList
+    .filter((s) => {
+      if (
+        studentDeptFilter !== 'ALL' &&
+        (s.department || '').trim().toLowerCase() !== studentDeptFilter.toLowerCase()
+      ) {
+        return false;
+      }
+      if (
+        studentYearFilter !== 'ALL' &&
+        (s.year || '').trim().toLowerCase() !== studentYearFilter.toLowerCase()
+      ) {
+        return false;
+      }
+      if (
+        studentSectionFilter !== 'ALL' &&
+        (s.section || '').trim().toUpperCase() !== studentSectionFilter.toUpperCase()
+      ) {
+        return false;
+      }
+      const q = studentSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.memberId.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        (s.department || '').toLowerCase().includes(q) ||
+        (s.year || '').toLowerCase().includes(q) ||
+        (s.section || '').toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (studentSortBy === 'dept_year_section') {
+        const deptCmp = (a.department || '').localeCompare(b.department || '');
+        if (deptCmp !== 0) return deptCmp;
+        const yrCmp = yearRank(a.year) - yearRank(b.year);
+        if (yrCmp !== 0) return yrCmp;
+        const secCmp = (a.section || '').localeCompare(b.section || '');
+        if (secCmp !== 0) return secCmp;
+        return a.memberId.localeCompare(b.memberId);
+      }
+      if (studentSortBy === 'year_section') {
+        const yrCmp = yearRank(a.year) - yearRank(b.year);
+        if (yrCmp !== 0) return yrCmp;
+        const secCmp = (a.section || '').localeCompare(b.section || '');
+        if (secCmp !== 0) return secCmp;
+        const deptCmp = (a.department || '').localeCompare(b.department || '');
+        if (deptCmp !== 0) return deptCmp;
+        return a.memberId.localeCompare(b.memberId);
+      }
+      if (studentSortBy === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      if (studentSortBy === 'cgpa_desc') {
+        return (b.cgpa || 0) - (a.cgpa || 0) || a.memberId.localeCompare(b.memberId);
+      }
+      return a.memberId.localeCompare(b.memberId);
+    });
+
+  const hasActiveStudentFilters =
+    studentSearch.trim().length > 0 ||
+    studentDeptFilter !== 'ALL' ||
+    studentYearFilter !== 'ALL' ||
+    studentSectionFilter !== 'ALL';
 
   const currentAssignedModules = getAssignedAdminModules(
     currentUser.adminPermissions,
@@ -1711,25 +1785,130 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* TAB: REGISTERED STUDENTS */}
       {activeTab === 'students' && canManageStudents && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-900/80 border border-slate-800">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search registered students by Roll No, name, branch, year..."
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-950/80 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 transition-colors"
-              />
+          <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search registered students by Roll No, name, email, branch, year..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-950/80 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 transition-colors"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={loadStudents}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingStudents ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={loadStudents}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingStudents ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Department
+                </label>
+                <select
+                  value={studentDeptFilter}
+                  onChange={(e) => setStudentDeptFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-700/80 text-white text-xs focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="ALL">All Departments</option>
+                  {studentDepartmentOptions.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Year
+                </label>
+                <select
+                  value={studentYearFilter}
+                  onChange={(e) => setStudentYearFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-700/80 text-white text-xs focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="ALL">All Years</option>
+                  {YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Section
+                </label>
+                <select
+                  value={studentSectionFilter}
+                  onChange={(e) => setStudentSectionFilter(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-700/80 text-white text-xs focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="ALL">All Sections</option>
+                  {SECTIONS.map((sec) => (
+                    <option key={sec} value={sec}>
+                      Section {sec}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                  Sort Order
+                </label>
+                <select
+                  value={studentSortBy}
+                  onChange={(e) =>
+                    setStudentSortBy(
+                      e.target.value as
+                        | 'dept_year_section'
+                        | 'year_section'
+                        | 'member_id'
+                        | 'name'
+                        | 'cgpa_desc'
+                    )
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950/80 border border-slate-700/80 text-white text-xs focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="dept_year_section">Department · Year · Section</option>
+                  <option value="year_section">Year · Section · Dept</option>
+                  <option value="member_id">Roll Number (A–Z)</option>
+                  <option value="name">Student Name (A–Z)</option>
+                  <option value="cgpa_desc">CGPA (High to Low)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-slate-400">
+              <span>
+                Showing <span className="font-semibold text-slate-200">{filteredStudents.length}</span> of{' '}
+                <span className="font-semibold text-slate-200">{studentsList.length}</span> registered students
+              </span>
+              {hasActiveStudentFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudentSearch('');
+                    setStudentDeptFilter('ALL');
+                    setStudentYearFilter('ALL');
+                    setStudentSectionFilter('ALL');
+                  }}
+                  className="text-cyan-300 hover:text-cyan-200 font-medium hover:underline"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Mobile Stacked Student Cards */}

@@ -1549,6 +1549,7 @@ export async function searchStudentsDirectory(
         or(
           ilike(schema.users.memberId, `%${q}%`),
           ilike(schema.users.name, `%${q}%`),
+          ilike(schema.users.department, `%${q}%`),
           ilike(schema.users.skills, `%${q}%`)
         )
       )

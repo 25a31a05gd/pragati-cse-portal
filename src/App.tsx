@@ -911,6 +911,9 @@ export function App() {
                     <StudentSearchView
                       initialQuery={studentSearchSeed}
                       currentUser={currentUser}
+                      onStudentUpdated={() => {
+                        fetchBootstrap();
+                      }}
                     />
                   )}
 

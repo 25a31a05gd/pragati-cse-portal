@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, ExternalLink, Pencil, X, ShieldCheck } from 'lucide-react';
 import { apiRequest, safeExternalHref } from '../api';
 import { hasAdminModulePermission } from '../utils/adminPermissions';
@@ -12,6 +12,7 @@ interface StudentSearchViewProps {
 
 const DEPARTMENTS = [
   'Computer Science & Engineering (CSE)',
+  'CSE (Artificial Intelligence)',
   'CSE (Artificial Intelligence & Machine Learning)',
   'CSE (Data Science)',
   'Information Technology (IT)',
@@ -30,12 +31,19 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
   onStudentUpdated,
 }) => {
   const [queryInput, setQueryInput] = useState(initialQuery);
+  const [deptFilter, setDeptFilter] = useState('ALL');
+  const [yearFilter, setYearFilter] = useState('ALL');
+  const [sectionFilter, setSectionFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState<
+    'dept_year_section' | 'year_section' | 'name' | 'member_id' | 'cgpa_desc'
+  >('dept_year_section');
   const [results, setResults] = useState<StudentDirectoryDetail[]>([]);
   const [selectedStudent, setSelectedStudent] =
     useState<StudentDirectoryDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const canStaffEdit =
+  const canEditStudent = hasAdminModulePermission(currentUser, 'students');
+  const canViewPhone =
     currentUser?.role === 'faculty' ||
     hasAdminModulePermission(currentUser, 'students');
   const canVerifyCodingOwner =
@@ -161,11 +169,115 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
     }
   };
 
+  const departmentOptions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...DEPARTMENTS,
+          ...results
+            .map((entry) => (entry.profile.department || '').trim())
+            .filter((d) => d.length > 0),
+        ])
+      ),
+    [results]
+  );
+
+  const filteredResults = useMemo(() => {
+    const yearRank = (year?: string): number => {
+      const idx = YEARS.indexOf(year || '');
+      return idx === -1 ? 99 : idx;
+    };
+
+    const q = queryInput.trim().toLowerCase();
+
+    return results
+      .filter((entry) => {
+        const p = entry.profile;
+        if (
+          deptFilter !== 'ALL' &&
+          (p.department || '').trim().toLowerCase() !== deptFilter.toLowerCase()
+        ) {
+          return false;
+        }
+        if (
+          yearFilter !== 'ALL' &&
+          (p.year || '').trim().toLowerCase() !== yearFilter.toLowerCase()
+        ) {
+          return false;
+        }
+        if (
+          sectionFilter !== 'ALL' &&
+          (p.section || '').trim().toUpperCase() !== sectionFilter.toUpperCase()
+        ) {
+          return false;
+        }
+        if (!q) return true;
+        return (
+          p.memberId.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q) ||
+          (p.skills || '').toLowerCase().includes(q) ||
+          (p.department || '').toLowerCase().includes(q) ||
+          (p.year || '').toLowerCase().includes(q) ||
+          (p.section || '').toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const pa = a.profile;
+        const pb = b.profile;
+        if (sortBy === 'dept_year_section') {
+          const deptCmp = (pa.department || '').localeCompare(pb.department || '');
+          if (deptCmp !== 0) return deptCmp;
+          const yrCmp = yearRank(pa.year) - yearRank(pb.year);
+          if (yrCmp !== 0) return yrCmp;
+          const secCmp = (pa.section || '').localeCompare(pb.section || '');
+          if (secCmp !== 0) return secCmp;
+          return pa.memberId.localeCompare(pb.memberId);
+        }
+        if (sortBy === 'year_section') {
+          const yrCmp = yearRank(pa.year) - yearRank(pb.year);
+          if (yrCmp !== 0) return yrCmp;
+          const secCmp = (pa.section || '').localeCompare(pb.section || '');
+          if (secCmp !== 0) return secCmp;
+          const deptCmp = (pa.department || '').localeCompare(pb.department || '');
+          if (deptCmp !== 0) return deptCmp;
+          return pa.memberId.localeCompare(pb.memberId);
+        }
+        if (sortBy === 'member_id') {
+          return pa.memberId.localeCompare(pb.memberId);
+        }
+        if (sortBy === 'cgpa_desc') {
+          return (pb.cgpa || 0) - (pa.cgpa || 0) || pa.name.localeCompare(pb.name);
+        }
+        return pa.name.localeCompare(pb.name);
+      });
+  }, [results, deptFilter, yearFilter, sectionFilter, sortBy, queryInput]);
+
+  useEffect(() => {
+    if (filteredResults.length === 0) {
+      if (selectedStudent !== null) {
+        setSelectedStudent(null);
+      }
+      return;
+    }
+    const stillVisible =
+      selectedStudent &&
+      filteredResults.some((entry) => entry.profile.id === selectedStudent.profile.id);
+    if (!stillVisible) {
+      setSelectedStudent(filteredResults[0]);
+    }
+  }, [filteredResults, selectedStudent]);
+
+  const hasActiveFilters =
+    queryInput.trim().length > 0 ||
+    deptFilter !== 'ALL' ||
+    yearFilter !== 'ALL' ||
+    sectionFilter !== 'ALL';
+
   const handleToggleOwnerVerification = async (
     platform: 'leetcode' | 'hackerrank' | 'github',
     verified: boolean
   ) => {
-    if (!selectedStudent || !canStaffEdit) return;
+    if (!selectedStudent || !canVerifyCodingOwner) return;
     setOwnerBusyPlatform(platform);
     setOwnerError(null);
     setEditSuccess(null);
@@ -214,24 +326,130 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <div className="relative flex-1 min-w-0">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            value={queryInput}
-            onChange={(e) => setQueryInput(e.target.value)}
-            placeholder="Enter Student ID (e.g. 22CSE104) or Name..."
-            className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 min-h-[42px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
-          />
+      <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              placeholder="Search by Student ID (e.g. 22CSE104), Name, Skills, or Department..."
+              className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2.5 min-h-[42px] text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-lg bg-blue-600 py-2.5 px-3.5 sm:px-5 min-h-[42px] text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
+          >
+            Search ID
+          </button>
+        </form>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+              Department
+            </label>
+            <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="ALL">All Departments</option>
+              {departmentOptions.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+              Year
+            </label>
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="ALL">All Years</option>
+              {YEARS.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+              Section
+            </label>
+            <select
+              value={sectionFilter}
+              onChange={(e) => setSectionFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="ALL">All Sections</option>
+              {SECTIONS.map((sec) => (
+                <option key={sec} value={sec}>
+                  Section {sec}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+              Sort Order
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) =>
+                setSortBy(
+                  e.target.value as
+                    | 'dept_year_section'
+                    | 'year_section'
+                    | 'name'
+                    | 'member_id'
+                    | 'cgpa_desc'
+                )
+              }
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+              <option value="dept_year_section">Department · Year · Section</option>
+              <option value="year_section">Year · Section · Dept</option>
+              <option value="member_id">Roll Number (A–Z)</option>
+              <option value="name">Student Name (A–Z)</option>
+              <option value="cgpa_desc">CGPA (High to Low)</option>
+            </select>
+          </div>
         </div>
-        <button
-          type="submit"
-          className="rounded-lg bg-blue-600 py-2.5 px-3.5 sm:px-5 min-h-[42px] text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0"
-        >
-          Search ID
-        </button>
-      </form>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <span>
+            Showing <span className="font-semibold text-slate-800">{filteredResults.length}</span> of{' '}
+            <span className="font-semibold text-slate-800">{results.length}</span> students
+          </span>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setQueryInput('');
+                setDeptFilter('ALL');
+                setYearFilter('ALL');
+                setSectionFilter('ALL');
+                runSearch('');
+              }}
+              className="font-medium text-blue-600 hover:underline"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
 
       {editSuccess && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800 flex items-center justify-between gap-2">
@@ -271,17 +489,17 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
           </div>
           <div className="lg:col-span-8 h-80 rounded-xl border border-slate-200 bg-white animate-pulse" />
         </div>
-      ) : results.length === 0 ? (
+      ) : filteredResults.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
           <p className="text-sm font-medium text-slate-700">
-            No student matched ID or name "{queryInput}".
+            No students matched your current search or Department / Year / Section filter.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Student List */}
           <div className="lg:col-span-4 space-y-2 max-h-56 lg:max-h-[72vh] overflow-y-auto pr-1">
-            {results.map((entry) => {
+            {filteredResults.map((entry) => {
               const isSelected = selectedStudent?.profile.id === entry.profile.id;
               return (
                 <button
@@ -306,7 +524,12 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                     {entry.profile.name}
                   </div>
                   <div className="mt-0.5 text-xs text-slate-500 truncate">
-                    {entry.profile.batchOrDesignation}
+                    {entry.profile.department || 'CSE'}
+                    {entry.profile.year
+                      ? ` · ${entry.profile.year} · Sec ${entry.profile.section || 'A'}`
+                      : entry.profile.batchOrDesignation
+                      ? ` · ${entry.profile.batchOrDesignation}`
+                      : ''}
                   </div>
                 </button>
               );
@@ -338,7 +561,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                       Skills: <span className="text-slate-800">{selectedStudent.profile.skills}</span>
                     </div>
                   )}
-                  {canStaffEdit && selectedStudent.profile.phone && (
+                  {canViewPhone && selectedStudent.profile.phone && (
                     <div className="mt-1 text-xs text-slate-500">
                       Phone: <span className="font-mono text-slate-800">{selectedStudent.profile.phone}</span>
                     </div>
@@ -353,7 +576,7 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
                     </div>
                   </div>
 
-                  {canStaffEdit && (
+                  {canEditStudent && (
                     <button
                       type="button"
                       onClick={() => openEditModal(selectedStudent.profile)}
@@ -625,8 +848,8 @@ export const StudentSearchView: React.FC<StudentSearchViewProps> = ({
         </div>
       )}
 
-      {/* Staff Edit Student Modal (Faculty & Admin) */}
-      {editModalOpen && selectedStudent && canStaffEdit && (
+      {/* Admin Edit Student Modal */}
+      {editModalOpen && selectedStudent && canEditStudent && (
         <div
           role="dialog"
           aria-modal="true"

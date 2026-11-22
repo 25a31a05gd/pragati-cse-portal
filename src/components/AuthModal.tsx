@@ -31,6 +31,7 @@ interface AuthModalProps {
 
 const DEPARTMENTS = [
   'Computer Science & Engineering (CSE)',
+  'CSE (Artificial Intelligence)',
   'CSE (Artificial Intelligence & Machine Learning)',
   'CSE (Data Science)',
   'Information Technology (IT)',
