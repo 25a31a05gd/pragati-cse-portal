@@ -1858,14 +1858,49 @@ async function computeUserProgress(db, userId) {
     coursesEnrolled: Number(courseRow?.value ?? 0)
   };
 }
-function mapSpotlightRow(row, authorName) {
+function parseSpotlightDepartmentAndDescription(rawDescription, title, headlineValue, authorDepartment) {
+  const raw = rawDescription || "";
+  const match = raw.match(/^\s*\[DEPT:([^\]]+)\]\s*([\s\S]*)$/);
+  if (match) {
+    return {
+      department: match[1].trim(),
+      description: match[2].trim()
+    };
+  }
+  const trimmedAuthorDept = (authorDepartment || "").trim();
+  if (trimmedAuthorDept && trimmedAuthorDept.toLowerCase() !== "administration" && trimmedAuthorDept.toLowerCase() !== "all departments") {
+    return {
+      department: trimmedAuthorDept,
+      description: raw
+    };
+  }
+  const combined = `${title} ${raw} ${headlineValue}`.toLowerCase();
+  if (combined.includes("cse") || combined.includes("computer science") || combined.includes("atlassian")) {
+    return {
+      department: "Computer Science & Engineering (CSE)",
+      description: raw
+    };
+  }
+  return {
+    department: "All Departments",
+    description: raw
+  };
+}
+function mapSpotlightRow(row, authorName, authorDepartment) {
+  const parsed = parseSpotlightDepartmentAndDescription(
+    row.description,
+    row.title,
+    row.headlineValue,
+    authorDepartment
+  );
   return {
     id: row.id,
+    department: parsed.department,
     category: row.category,
     headlineValue: row.headlineValue,
     title: row.title,
     recipients: row.recipients,
-    description: row.description,
+    description: parsed.description,
     authorId: row.authorId ?? "",
     authorName: authorName || row.authorNameSnapshot || "Department Administration",
     createdAt: row.createdAt.toISOString()
@@ -1874,16 +1909,18 @@ function mapSpotlightRow(row, authorName) {
 async function getSpotlightsList(db) {
   const rows = await db.select({
     spotlight: schema_exports.spotlights,
-    authorName: schema_exports.users.name
+    authorName: schema_exports.users.name,
+    authorDepartment: schema_exports.users.department
   }).from(schema_exports.spotlights).leftJoin(schema_exports.users, eq(schema_exports.spotlights.authorId, schema_exports.users.id)).orderBy(desc(schema_exports.spotlights.createdAt));
-  return rows.map((r) => mapSpotlightRow(r.spotlight, r.authorName));
+  return rows.map((r) => mapSpotlightRow(r.spotlight, r.authorName, r.authorDepartment));
 }
 async function getSpotlightById(db, id) {
   const [row] = await db.select({
     spotlight: schema_exports.spotlights,
-    authorName: schema_exports.users.name
+    authorName: schema_exports.users.name,
+    authorDepartment: schema_exports.users.department
   }).from(schema_exports.spotlights).leftJoin(schema_exports.users, eq(schema_exports.spotlights.authorId, schema_exports.users.id)).where(eq(schema_exports.spotlights.id, id)).limit(1);
-  return row ? mapSpotlightRow(row.spotlight, row.authorName) : null;
+  return row ? mapSpotlightRow(row.spotlight, row.authorName, row.authorDepartment) : null;
 }
 async function getHackathonsList(db, authorFilterId) {
   const query = db.select({
@@ -2644,6 +2681,7 @@ async function searchStudentsDirectory(db, queryText, options = {}) {
     or(
       ilike(schema_exports.users.memberId, `%${q}%`),
       ilike(schema_exports.users.name, `%${q}%`),
+      ilike(schema_exports.users.department, `%${q}%`),
       ilike(schema_exports.users.skills, `%${q}%`)
     )
   ) : baseCondition;
@@ -3059,6 +3097,9 @@ async function generateUniqueAdminMemberId(db) {
   }
   return `ADM-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 }
+var TRUSTED_STATIC_ORIGINS = /* @__PURE__ */ new Set([
+  "https://pragati-university.ai.studio"
+]);
 var TRUSTED_PORTAL_VERCEL_ORIGIN_RE = /^https:\/\/pragati-cse-portal(?:-[a-z0-9-]+)*\.vercel\.app$/i;
 var TRUSTED_AISTUDIO_ORIGIN_RE = /^https:\/\/ais-(?:dev|pre)-[a-z0-9-]+(?:\.[a-z0-9-]+)*\.run\.app$/i;
 function getConfiguredCorsEntries() {
@@ -3087,7 +3128,7 @@ function isAllowedCorsOrigin(origin, configuredEntries) {
   if (process.env.NODE_ENV !== "production" && (parsedOrigin.hostname === "localhost" || parsedOrigin.hostname === "127.0.0.1")) {
     return true;
   }
-  if (TRUSTED_PORTAL_VERCEL_ORIGIN_RE.test(normalizedOrigin) || TRUSTED_AISTUDIO_ORIGIN_RE.test(normalizedOrigin)) {
+  if (TRUSTED_STATIC_ORIGINS.has(normalizedOrigin) || TRUSTED_PORTAL_VERCEL_ORIGIN_RE.test(normalizedOrigin) || TRUSTED_AISTUDIO_ORIGIN_RE.test(normalizedOrigin)) {
     return true;
   }
   for (const rawEntry of configuredEntries) {
@@ -5612,6 +5653,31 @@ async function buildExpressApp(options) {
       res.json({ ok: true });
     })
   );
+  const stripSpotlightDeptPrefix = (raw) => {
+    const match = (raw || "").match(/^\s*\[DEPT:([^\]]+)\]\s*([\s\S]*)$/);
+    if (match) {
+      return {
+        department: match[1].trim(),
+        description: match[2].trim()
+      };
+    }
+    return {
+      department: "",
+      description: (raw || "").trim()
+    };
+  };
+  const encodeSpotlightDeptDescription = (description, department) => {
+    const { description: cleanDesc } = stripSpotlightDeptPrefix(description);
+    const cleanDept = department.trim();
+    if (!cleanDept) return cleanDesc;
+    return cleanDesc ? `[DEPT:${cleanDept}] ${cleanDesc}` : `[DEPT:${cleanDept}]`;
+  };
+  const isCentralAdminActor = (record) => {
+    if (!record) return false;
+    if (isSuperAdminRecord(record)) return true;
+    const dept = (record.user.department || "").trim().toLowerCase();
+    return !dept || dept === "administration" || dept === "all departments";
+  };
   app.post(
     "/api/spotlights",
     requireAuth,
@@ -5624,18 +5690,25 @@ async function buildExpressApp(options) {
         });
         return;
       }
-      const { category, headlineValue, title, recipients, description } = req.body;
+      const { category, headlineValue, title, recipients, description, department } = req.body;
       if (typeof headlineValue !== "string" || !headlineValue.trim() || typeof title !== "string" || !title.trim()) {
         res.status(400).json({ error: "Headline amount/prize and title are required." });
         return;
       }
+      const centralAdmin = user.role === "admin" && isCentralAdminActor(req.userRecord);
+      const requestedDept = typeof department === "string" && department.trim() ? department.trim() : "";
+      const resolvedDepartment = centralAdmin ? requestedDept || "All Departments" : (user.department || "").trim() || "All Departments";
+      const encodedDescription = encodeSpotlightDeptDescription(
+        typeof description === "string" ? description : "",
+        resolvedDepartment
+      );
       const db = requireDb();
       const [inserted] = await db.insert(schema_exports.spotlights).values({
         category: typeof category === "string" && category.trim() ? category.trim() : "Department Spotlight",
         headlineValue: headlineValue.trim(),
         title: title.trim(),
         recipients: typeof recipients === "string" ? recipients.trim() : "",
-        description: typeof description === "string" ? description.trim() : "",
+        description: encodedDescription,
         authorId: user.id,
         authorNameSnapshot: user.name
       }).returning();
@@ -5660,7 +5733,8 @@ async function buildExpressApp(options) {
         res.status(404).json({ error: "Spotlight not found." });
         return;
       }
-      const { category, headlineValue, title, recipients, description } = req.body;
+      const { category, headlineValue, title, recipients, description, department } = req.body;
+      const centralAdmin = user.role === "admin" && isCentralAdminActor(req.userRecord);
       const db = requireDb();
       const result = await db.transaction(async (tx) => {
         const [existing] = await tx.select().from(schema_exports.spotlights).where(eq2(schema_exports.spotlights.id, id)).limit(1);
@@ -5673,20 +5747,33 @@ async function buildExpressApp(options) {
             error: "Only the original author or Admin can edit this Dashboard Spotlight."
           };
         }
+        const existingParsed = stripSpotlightDeptPrefix(existing.description);
+        if (user.role === "admin" && !centralAdmin && existing.authorId !== user.id && existingParsed.department && existingParsed.department.toLowerCase() !== (user.department || "").trim().toLowerCase()) {
+          return {
+            status: 403,
+            error: "Branch administrators can only edit highlights belonging to their own department."
+          };
+        }
         const nextCategory = asNonEmptyTrimmedString(category, existing.category);
         const nextHeadline = asNonEmptyTrimmedString(headlineValue, existing.headlineValue);
         const nextTitle = asNonEmptyTrimmedString(title, existing.title);
         const nextRecipients = asNonEmptyTrimmedString(recipients, existing.recipients);
-        const nextDescription = asNonEmptyTrimmedString(description, existing.description);
-        if (nextCategory === null || nextHeadline === null || nextTitle === null || nextRecipients === null || nextDescription === null) {
+        const nextDescriptionRaw = description === void 0 ? existingParsed.description : typeof description === "string" ? description.trim() : null;
+        if (nextCategory === null || nextHeadline === null || nextTitle === null || nextRecipients === null || nextDescriptionRaw === null) {
           return { status: 400, error: "Spotlight fields must be valid text strings." };
         }
+        const requestedDept = typeof department === "string" && department.trim() ? department.trim() : "";
+        const targetDepartment = centralAdmin ? requestedDept || existingParsed.department || "All Departments" : existingParsed.department || (user.department || "").trim() || "All Departments";
+        const encodedDescription = encodeSpotlightDeptDescription(
+          nextDescriptionRaw,
+          targetDepartment
+        );
         const updatedRows = await tx.update(schema_exports.spotlights).set({
           category: nextCategory || existing.category,
           headlineValue: nextHeadline || existing.headlineValue,
           title: nextTitle || existing.title,
           recipients: nextRecipients,
-          description: nextDescription
+          description: encodedDescription
         }).where(eq2(schema_exports.spotlights.id, id)).returning({ id: schema_exports.spotlights.id });
         if (updatedRows.length === 0) {
           return { status: 404, error: "Spotlight not found." };
@@ -5718,9 +5805,14 @@ async function buildExpressApp(options) {
         res.status(404).json({ error: "Spotlight not found." });
         return;
       }
+      const centralAdmin = user.role === "admin" && isCentralAdminActor(req.userRecord);
       const db = requireDb();
       const result = await db.transaction(async (tx) => {
-        const [existing] = await tx.select({ id: schema_exports.spotlights.id, authorId: schema_exports.spotlights.authorId }).from(schema_exports.spotlights).where(eq2(schema_exports.spotlights.id, id)).limit(1);
+        const [existing] = await tx.select({
+          id: schema_exports.spotlights.id,
+          authorId: schema_exports.spotlights.authorId,
+          description: schema_exports.spotlights.description
+        }).from(schema_exports.spotlights).where(eq2(schema_exports.spotlights.id, id)).limit(1);
         if (!existing) {
           return { status: 404, error: "Spotlight not found." };
         }
@@ -5728,6 +5820,13 @@ async function buildExpressApp(options) {
           return {
             status: 403,
             error: "Only the original author or Admin can delete this Dashboard Spotlight."
+          };
+        }
+        const existingParsed = stripSpotlightDeptPrefix(existing.description);
+        if (user.role === "admin" && !centralAdmin && existing.authorId !== user.id && existingParsed.department && existingParsed.department.toLowerCase() !== (user.department || "").trim().toLowerCase()) {
+          return {
+            status: 403,
+            error: "Branch administrators can only remove highlights belonging to their own department."
           };
         }
         const deletedRows = await tx.delete(schema_exports.spotlights).where(eq2(schema_exports.spotlights.id, id)).returning({ id: schema_exports.spotlights.id });

@@ -439,17 +439,67 @@ export async function computeUserProgress(
   };
 }
 
+function parseSpotlightDepartmentAndDescription(
+  rawDescription: string,
+  title: string,
+  headlineValue: string,
+  authorDepartment?: string | null
+): { department: string; description: string } {
+  const raw = rawDescription || '';
+  const match = raw.match(/^\s*\[DEPT:([^\]]+)\]\s*([\s\S]*)$/);
+  if (match) {
+    return {
+      department: match[1].trim(),
+      description: match[2].trim(),
+    };
+  }
+
+  const trimmedAuthorDept = (authorDepartment || '').trim();
+  if (
+    trimmedAuthorDept &&
+    trimmedAuthorDept.toLowerCase() !== 'administration' &&
+    trimmedAuthorDept.toLowerCase() !== 'all departments'
+  ) {
+    return {
+      department: trimmedAuthorDept,
+      description: raw,
+    };
+  }
+
+  const combined = `${title} ${raw} ${headlineValue}`.toLowerCase();
+  if (combined.includes('cse') || combined.includes('computer science') || combined.includes('atlassian')) {
+    return {
+      department: 'Computer Science & Engineering (CSE)',
+      description: raw,
+    };
+  }
+
+  return {
+    department: 'All Departments',
+    description: raw,
+  };
+}
+
 function mapSpotlightRow(
   row: typeof schema.spotlights.$inferSelect,
-  authorName?: string | null
+  authorName?: string | null,
+  authorDepartment?: string | null
 ): SpotlightBanner {
+  const parsed = parseSpotlightDepartmentAndDescription(
+    row.description,
+    row.title,
+    row.headlineValue,
+    authorDepartment
+  );
+
   return {
     id: row.id,
+    department: parsed.department,
     category: row.category,
     headlineValue: row.headlineValue,
     title: row.title,
     recipients: row.recipients,
-    description: row.description,
+    description: parsed.description,
     authorId: row.authorId ?? '',
     authorName: authorName || row.authorNameSnapshot || 'Department Administration',
     createdAt: row.createdAt.toISOString(),
@@ -461,12 +511,13 @@ export async function getSpotlightsList(db: AppDatabase): Promise<SpotlightBanne
     .select({
       spotlight: schema.spotlights,
       authorName: schema.users.name,
+      authorDepartment: schema.users.department,
     })
     .from(schema.spotlights)
     .leftJoin(schema.users, eq(schema.spotlights.authorId, schema.users.id))
     .orderBy(desc(schema.spotlights.createdAt));
 
-  return rows.map((r) => mapSpotlightRow(r.spotlight, r.authorName));
+  return rows.map((r) => mapSpotlightRow(r.spotlight, r.authorName, r.authorDepartment));
 }
 
 export async function getSpotlightById(
@@ -477,13 +528,14 @@ export async function getSpotlightById(
     .select({
       spotlight: schema.spotlights,
       authorName: schema.users.name,
+      authorDepartment: schema.users.department,
     })
     .from(schema.spotlights)
     .leftJoin(schema.users, eq(schema.spotlights.authorId, schema.users.id))
     .where(eq(schema.spotlights.id, id))
     .limit(1);
 
-  return row ? mapSpotlightRow(row.spotlight, row.authorName) : null;
+  return row ? mapSpotlightRow(row.spotlight, row.authorName, row.authorDepartment) : null;
 }
 
 export async function getHackathonsList(

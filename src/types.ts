@@ -126,6 +126,7 @@ export interface StudentDirectoryDetail {
 
 export interface SpotlightBanner {
   id: string;
+  department?: string;
   category: string;
   headlineValue: string;
   title: string;

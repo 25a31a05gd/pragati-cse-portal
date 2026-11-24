@@ -4064,6 +4064,34 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
   );
 
   // 9. Dashboard Spotlights
+  const stripSpotlightDeptPrefix = (raw: string): { department: string; description: string } => {
+    const match = (raw || '').match(/^\s*\[DEPT:([^\]]+)\]\s*([\s\S]*)$/);
+    if (match) {
+      return {
+        department: match[1].trim(),
+        description: match[2].trim(),
+      };
+    }
+    return {
+      department: '',
+      description: (raw || '').trim(),
+    };
+  };
+
+  const encodeSpotlightDeptDescription = (description: string, department: string): string => {
+    const { description: cleanDesc } = stripSpotlightDeptPrefix(description);
+    const cleanDept = department.trim();
+    if (!cleanDept) return cleanDesc;
+    return cleanDesc ? `[DEPT:${cleanDept}] ${cleanDesc}` : `[DEPT:${cleanDept}]`;
+  };
+
+  const isCentralAdminActor = (record: AuthedRequest['userRecord']): boolean => {
+    if (!record) return false;
+    if (isSuperAdminRecord(record)) return true;
+    const dept = (record.user.department || '').trim().toLowerCase();
+    return !dept || dept === 'administration' || dept === 'all departments';
+  };
+
   app.post(
     '/api/spotlights',
     requireAuth,
@@ -4081,12 +4109,13 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
         return;
       }
 
-      const { category, headlineValue, title, recipients, description } = req.body as {
+      const { category, headlineValue, title, recipients, description, department } = req.body as {
         category?: string;
         headlineValue?: string;
         title?: string;
         recipients?: string;
         description?: string;
+        department?: string;
       };
 
       if (
@@ -4099,6 +4128,17 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
         return;
       }
 
+      const centralAdmin = user.role === 'admin' && isCentralAdminActor(req.userRecord);
+      const requestedDept =
+        typeof department === 'string' && department.trim() ? department.trim() : '';
+      const resolvedDepartment = centralAdmin
+        ? requestedDept || 'All Departments'
+        : (user.department || '').trim() || 'All Departments';
+      const encodedDescription = encodeSpotlightDeptDescription(
+        typeof description === 'string' ? description : '',
+        resolvedDepartment
+      );
+
       const db = requireDb();
       const [inserted] = await db
         .insert(schema.spotlights)
@@ -4110,7 +4150,7 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
           headlineValue: headlineValue.trim(),
           title: title.trim(),
           recipients: typeof recipients === 'string' ? recipients.trim() : '',
-          description: typeof description === 'string' ? description.trim() : '',
+          description: encodedDescription,
           authorId: user.id,
           authorNameSnapshot: user.name,
         })
@@ -4144,14 +4184,16 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
         return;
       }
 
-      const { category, headlineValue, title, recipients, description } = req.body as {
+      const { category, headlineValue, title, recipients, description, department } = req.body as {
         category?: string;
         headlineValue?: string;
         title?: string;
         recipients?: string;
         description?: string;
+        department?: string;
       };
 
+      const centralAdmin = user.role === 'admin' && isCentralAdminActor(req.userRecord);
       const db = requireDb();
       const result = await db.transaction(async (tx) => {
         const [existing] = await tx
@@ -4170,20 +4212,49 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
           };
         }
 
+        const existingParsed = stripSpotlightDeptPrefix(existing.description);
+        if (
+          user.role === 'admin' &&
+          !centralAdmin &&
+          existing.authorId !== user.id &&
+          existingParsed.department &&
+          existingParsed.department.toLowerCase() !== (user.department || '').trim().toLowerCase()
+        ) {
+          return {
+            status: 403 as const,
+            error: 'Branch administrators can only edit highlights belonging to their own department.',
+          };
+        }
+
         const nextCategory = asNonEmptyTrimmedString(category, existing.category);
         const nextHeadline = asNonEmptyTrimmedString(headlineValue, existing.headlineValue);
         const nextTitle = asNonEmptyTrimmedString(title, existing.title);
         const nextRecipients = asNonEmptyTrimmedString(recipients, existing.recipients);
-        const nextDescription = asNonEmptyTrimmedString(description, existing.description);
+        const nextDescriptionRaw =
+          description === undefined
+            ? existingParsed.description
+            : typeof description === 'string'
+            ? description.trim()
+            : null;
         if (
           nextCategory === null ||
           nextHeadline === null ||
           nextTitle === null ||
           nextRecipients === null ||
-          nextDescription === null
+          nextDescriptionRaw === null
         ) {
           return { status: 400 as const, error: 'Spotlight fields must be valid text strings.' };
         }
+
+        const requestedDept =
+          typeof department === 'string' && department.trim() ? department.trim() : '';
+        const targetDepartment = centralAdmin
+          ? requestedDept || existingParsed.department || 'All Departments'
+          : existingParsed.department || (user.department || '').trim() || 'All Departments';
+        const encodedDescription = encodeSpotlightDeptDescription(
+          nextDescriptionRaw,
+          targetDepartment
+        );
 
         const updatedRows = await tx
           .update(schema.spotlights)
@@ -4192,7 +4263,7 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
             headlineValue: nextHeadline || existing.headlineValue,
             title: nextTitle || existing.title,
             recipients: nextRecipients,
-            description: nextDescription,
+            description: encodedDescription,
           })
           .where(eq(schema.spotlights.id, id))
           .returning({ id: schema.spotlights.id });
@@ -4237,10 +4308,15 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
         return;
       }
 
+      const centralAdmin = user.role === 'admin' && isCentralAdminActor(req.userRecord);
       const db = requireDb();
       const result = await db.transaction(async (tx) => {
         const [existing] = await tx
-          .select({ id: schema.spotlights.id, authorId: schema.spotlights.authorId })
+          .select({
+            id: schema.spotlights.id,
+            authorId: schema.spotlights.authorId,
+            description: schema.spotlights.description,
+          })
           .from(schema.spotlights)
           .where(eq(schema.spotlights.id, id))
           .limit(1);
@@ -4252,6 +4328,20 @@ async function buildExpressApp(options?: BuildExpressAppOptions): Promise<expres
           return {
             status: 403 as const,
             error: 'Only the original author or Admin can delete this Dashboard Spotlight.',
+          };
+        }
+
+        const existingParsed = stripSpotlightDeptPrefix(existing.description);
+        if (
+          user.role === 'admin' &&
+          !centralAdmin &&
+          existing.authorId !== user.id &&
+          existingParsed.department &&
+          existingParsed.department.toLowerCase() !== (user.department || '').trim().toLowerCase()
+        ) {
+          return {
+            status: 403 as const,
+            error: 'Branch administrators can only remove highlights belonging to their own department.',
           };
         }
 

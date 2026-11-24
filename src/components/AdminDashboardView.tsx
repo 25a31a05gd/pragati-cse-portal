@@ -24,6 +24,7 @@ import {
   BarChart3,
   ShieldAlert,
   Crown,
+  TrendingUp,
 } from 'lucide-react';
 import { apiRequest } from '../api';
 import type {
@@ -32,6 +33,7 @@ import type {
   AdminPermissions,
   PortalProgress,
   PublicUserProfile,
+  SpotlightBanner,
 } from '../types';
 import {
   ADMIN_MODULE_DEFINITIONS,
@@ -41,9 +43,11 @@ import {
   hasAdminModulePermission,
   isSuperAdminUser,
 } from '../utils/adminPermissions';
+import { buildDepartmentPackageMarquee } from '../utils/departments';
 
 interface AdminDashboardViewProps {
   currentUser: PublicUserProfile;
+  spotlights?: SpotlightBanner[];
   onLogout: () => void;
   onFacultyChanged?: () => Promise<void> | void;
   onProfileUpdated?: (nextProfile: PublicUserProfile, nextProgress: PortalProgress) => void;
@@ -152,11 +156,19 @@ function permissionFlagKey(module: AdminModulePermission): keyof AdminPermission
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   currentUser,
+  spotlights = [],
   onLogout,
   onFacultyChanged,
   onProfileUpdated,
 }) => {
   const isSuperAdmin = isSuperAdminUser(currentUser);
+  const isCentralAdmin = Boolean(
+    isSuperAdmin ||
+      !currentUser.department ||
+      currentUser.department === 'Administration' ||
+      currentUser.department === 'All Departments'
+  );
+  const adminMarqueePackages = buildDepartmentPackageMarquee(spotlights);
   const canManageAdmins = canManageAdminAccounts(currentUser);
   const canManageFaculty = hasAdminModulePermission(currentUser, 'faculty');
   const canManageStudents = hasAdminModulePermission(currentUser, 'students');
@@ -340,6 +352,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [adminProfileSuccess, setAdminProfileSuccess] = useState<string | null>(null);
 
   // Own Admin Change Password Form State
+  const [isChangingAdminPassword, setIsChangingAdminPassword] = useState(false);
   const [adminCurrentPassword, setAdminCurrentPassword] = useState('');
   const [adminNewPassword, setAdminNewPassword] = useState('');
   const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
@@ -924,6 +937,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       setAdminCurrentPassword('');
       setAdminNewPassword('');
       setAdminConfirmPassword('');
+      setIsChangingAdminPassword(false);
     } catch (err) {
       setAdminPassError(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
@@ -1585,6 +1599,83 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             </div>
           ) : null}
+
+          {isCentralAdmin && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/90 p-4 sm:p-5 space-y-3 overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <h3 className="text-sm font-bold text-white">
+                    Central Portal · All Departments Live Side-by-Side Showcase
+                  </h3>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Shown only in the Central Portal &amp; Public Overview
+                </span>
+              </div>
+              <div className="dept-marquee-wrapper relative overflow-hidden">
+                <div className="animate-dept-marquee gap-3">
+                  {[0, 1].map((loopIdx) => (
+                    <div
+                      key={loopIdx}
+                      aria-hidden={loopIdx === 1}
+                      className="flex items-stretch gap-3 shrink-0 pr-3"
+                    >
+                      {adminMarqueePackages.map((item) => (
+                        <div
+                          key={`${loopIdx}-${item.department}`}
+                          className={`w-[260px] shrink-0 rounded-xl border p-3 flex flex-col justify-between gap-2 ${
+                            item.isPublished
+                              ? 'border-emerald-500/40 bg-emerald-950/40'
+                              : 'border-slate-800 bg-slate-900/80'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300 truncate">
+                              {item.shortLabel}
+                            </span>
+                            {item.isPublished && (
+                              <span className="text-[9px] font-bold uppercase text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                Live
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-lg font-extrabold font-mono tabular-nums text-emerald-400">
+                              {item.packageValue}
+                            </div>
+                            <div className="text-[11px] font-medium text-slate-200 truncate">
+                              {item.title}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1 pt-1.5 border-t border-slate-800/80 text-center">
+                            <div>
+                              <div className="text-[10px] font-bold font-mono text-blue-300 truncate">
+                                {item.placementRate}
+                              </div>
+                              <div className="text-[8px] text-slate-400">Placement</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-bold font-mono text-amber-300 truncate">
+                                {item.hackathonPrize}
+                              </div>
+                              <div className="text-[8px] text-slate-400">Hackathon</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] font-bold font-mono text-indigo-300 truncate">
+                                {item.projectsTraining}
+                              </div>
+                              <div className="text-[8px] text-slate-400">Projects</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2256,7 +2347,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         )}
                       {DEPARTMENTS.map((dept) => (
                         <option key={dept} value={dept}>
-                          {dept}
+                          {dept === 'Administration' ? 'All Departments (Central Administration)' : dept}
                         </option>
                       ))}
                     </select>
@@ -2341,14 +2432,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Change Own Password Card */}
             <div className="p-4 sm:p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-5">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-cyan-400" />
-                  Change Administrator Password
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Update your own administrator login password. This change takes effect immediately.
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-cyan-400" />
+                    Change Administrator Password
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Update your own administrator login password. This change takes effect immediately.
+                  </p>
+                </div>
+                {!isChangingAdminPassword && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminPassError(null);
+                      setAdminPassSuccess(null);
+                      setIsChangingAdminPassword(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 min-h-[40px] rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-xs font-semibold shrink-0 transition-colors"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    Change Password
+                  </button>
+                )}
               </div>
 
               {adminPassError && (
@@ -2365,76 +2472,99 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleAdminChangePassword} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Current Password <span className="text-rose-400">*</span>
-                  </label>
-                  <div className="relative">
+              {!isChangingAdminPassword ? (
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <span>
+                    Your password is protected and hidden. Click <strong className="text-white">Change Password</strong> to reveal the password update form.
+                  </span>
+                </div>
+              ) : (
+                <form onSubmit={handleAdminChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Current Password <span className="text-rose-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showAdminCurrentPass ? 'text' : 'password'}
+                        required
+                        value={adminCurrentPassword}
+                        onChange={(e) => setAdminCurrentPassword(e.target.value)}
+                        placeholder="Enter existing admin password"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminCurrentPass(!showAdminCurrentPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                      >
+                        {showAdminCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      New Password <span className="text-rose-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showAdminNewPass ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={adminNewPassword}
+                        onChange={(e) => setAdminNewPassword(e.target.value)}
+                        placeholder="At least 6 characters"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminNewPass(!showAdminNewPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                      >
+                        {showAdminNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Confirm New Password <span className="text-rose-400">*</span>
+                    </label>
                     <input
-                      type={showAdminCurrentPass ? 'text' : 'password'}
+                      type="password"
                       required
-                      value={adminCurrentPassword}
-                      onChange={(e) => setAdminCurrentPassword(e.target.value)}
-                      placeholder="Enter existing admin password"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 pr-10"
+                      value={adminConfirmPassword}
+                      onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400"
                     />
+                  </div>
+
+                  <div className="flex flex-wrap justify-end gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowAdminCurrentPass(!showAdminCurrentPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                      onClick={() => {
+                        setAdminCurrentPassword('');
+                        setAdminNewPassword('');
+                        setAdminConfirmPassword('');
+                        setAdminPassError(null);
+                        setIsChangingAdminPassword(false);
+                      }}
+                      className="px-4 py-2.5 min-h-[40px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                     >
-                      {showAdminCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      Cancel
                     </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    New Password <span className="text-rose-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showAdminNewPass ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={adminNewPassword}
-                      onChange={(e) => setAdminNewPassword(e.target.value)}
-                      placeholder="At least 6 characters"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 pr-10"
-                    />
                     <button
-                      type="button"
-                      onClick={() => setShowAdminNewPass(!showAdminNewPass)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                      type="submit"
+                      disabled={adminPassSubmitting}
+                      className="px-5 py-2.5 min-h-[40px] rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-50"
                     >
-                      {showAdminNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {adminPassSubmitting ? 'Updating Password...' : 'Update Admin Password'}
                     </button>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Confirm New Password <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={adminConfirmPassword}
-                    onChange={(e) => setAdminConfirmPassword(e.target.value)}
-                    placeholder="Re-enter new password"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={adminPassSubmitting}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all disabled:opacity-50"
-                >
-                  {adminPassSubmitting ? 'Updating Password...' : 'Update Admin Password'}
-                </button>
-              </form>
+                </form>
+              )}
             </div>
 
             {/* Admin Identity & Safeguards Info Card */}
@@ -2559,7 +2689,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   >
                     {DEPARTMENTS.map((dept) => (
                       <option key={dept} value={dept}>
-                        {dept}
+                        {dept === 'Administration' ? 'All Departments (Central Administration)' : dept}
                       </option>
                     ))}
                   </select>
@@ -2863,7 +2993,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     )}
                     {DEPARTMENTS.map((dept) => (
                       <option key={dept} value={dept}>
-                        {dept}
+                        {dept === 'Administration' ? 'All Departments (Central Administration)' : dept}
                       </option>
                     ))}
                   </select>

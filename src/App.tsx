@@ -42,6 +42,10 @@ import type {
   SpotlightBanner,
 } from './types';
 import { LockedGateView } from './components/LockedGateView';
+import {
+  getDepartmentDashboardMeta,
+  resolveUserDashboardDepartment,
+} from './utils/departments';
 
 const DashboardView = lazy(() =>
   import('./components/DashboardView').then((m) => ({ default: m.DashboardView }))
@@ -155,6 +159,16 @@ export function App() {
   // After login: ALL sections unlock!
   const isOutsider = !currentUser;
   const isStaff = currentUser?.role === 'faculty' || currentUser?.role === 'admin';
+
+  const [dashboardDepartment, setDashboardDepartment] = useState<string>(() =>
+    resolveUserDashboardDepartment(null)
+  );
+
+  useEffect(() => {
+    setDashboardDepartment(resolveUserDashboardDepartment(currentUser));
+  }, [currentUser?.id, currentUser?.role, currentUser?.department, currentUser?.isSuperAdmin]);
+
+  const activeDeptShortLabel = getDepartmentDashboardMeta(dashboardDepartment).shortLabel;
 
   const fetchBootstrap = useCallback(async () => {
     try {
@@ -481,7 +495,7 @@ export function App() {
             /
           </span>
           <span className="hidden xl:inline text-xs font-semibold text-slate-600 truncate tracking-wide uppercase">
-            {SECTION_LABELS[activeSection]}
+            {activeSection === 'dashboard' ? activeDeptShortLabel : SECTION_LABELS[activeSection]}
           </span>
         </div>
 
@@ -643,7 +657,7 @@ export function App() {
           </div>
 
           <div className="pt-4 border-t border-slate-100 px-3 py-2 text-[11px] text-slate-400 leading-relaxed">
-            <div>Dept of Computer Science & Engg</div>
+            <div>{activeDeptShortLabel}</div>
             <div className="text-[10px] text-slate-400">
               {isOutsider ? 'Public Overview Mode' : 'All Modules Unlocked'}
             </div>
@@ -749,7 +763,7 @@ export function App() {
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-100 px-2 py-2 text-[11px] text-slate-400 leading-relaxed">
-                <div>Dept of Computer Science & Engg</div>
+                <div>{activeDeptShortLabel}</div>
                 <div className="text-[10px] text-slate-400">
                   {isOutsider ? 'Public Overview Mode' : 'All Modules Unlocked'}
                 </div>
@@ -804,6 +818,8 @@ export function App() {
                       courses={courses}
                       facultyMembers={facultyMembers}
                       publicCounts={publicCounts}
+                      selectedDepartment={dashboardDepartment}
+                      onSelectedDepartmentChange={setDashboardDepartment}
                       onNavigate={handleNavigate}
                       onSpotlightsChange={setSpotlights}
                     />
@@ -936,6 +952,7 @@ export function App() {
                   {activeSection === 'admin-control' && currentUser?.role === 'admin' && (
                     <AdminDashboardView
                       currentUser={currentUser}
+                      spotlights={spotlights}
                       onLogout={handleLogout}
                       onFacultyChanged={fetchBootstrap}
                       onProfileUpdated={(nextProfile, nextProgress) => {

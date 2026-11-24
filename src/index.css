@@ -41,6 +41,27 @@
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
+@keyframes dept-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-dept-marquee {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: dept-marquee 34s linear infinite;
+}
+
+.dept-marquee-wrapper:hover .animate-dept-marquee,
+.dept-marquee-wrapper:focus-within .animate-dept-marquee {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -50,5 +71,8 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
 
+  .dept-marquee-wrapper {
+    overflow-x: auto;
+  }
+}
